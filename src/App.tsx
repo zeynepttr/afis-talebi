@@ -157,6 +157,7 @@ export default function App() {
     ozelNot: ''
   });
   const [submittingRequest, setSubmittingRequest] = useState(false);
+  const [mobileFormTab, setMobileFormTab] = useState<'form' | 'preview'>('form');
 
   // ── Toast Notifications ──
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -1119,10 +1120,10 @@ export default function App() {
       </aside>
 
       {/* ════ MAIN WRAPPER ════ */}
-      <div className="flex-1 flex flex-col min-h-screen w-full lg:ml-64 pb-20 lg:pb-8">
+      <div className="flex-1 flex flex-col min-h-screen w-full lg:ml-64 pb-32 lg:pb-8">
         {/* Responsive Mobile Topbar (< 1024px) */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 flex items-center justify-between lg:hidden">
-          <div className="flex items-center gap-2.5">
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3.5 py-2.5 pt-safe flex items-center justify-between lg:hidden shadow-xs">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setMobileMenuOpen(true)}
               className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -1131,16 +1132,23 @@ export default function App() {
               <Menu size={20} />
             </button>
             <div className="flex items-center gap-2">
-              <span className="text-lg">🎨</span>
-              <h1 className="text-sm font-black text-slate-900">Afiş Portalı</h1>
+              <div className="w-8 h-8 bg-gradient-to-tr from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center text-base text-white shadow-xs shrink-0">
+                🎨
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-sm font-black text-slate-900 leading-tight truncate">Afiş Portalı</h1>
+                <span className="text-[10px] font-bold text-violet-600 block -mt-0.5 truncate">
+                  {currentUser.role === 'admin' ? '👑 Admin Paneli' : `👤 ${currentUser.name}`}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {currentUser.role === 'user' && activeTab !== 'new' && (
               <button
                 onClick={() => handleSelectTab('new')}
-                className="py-1.5 px-3 bg-violet-600 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1 min-h-[36px]"
+                className="py-1.5 px-3 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1 min-h-[38px] transition-transform"
               >
                 <Plus size={14} />
                 <span>Yeni</span>
@@ -1149,10 +1157,10 @@ export default function App() {
 
             <button
               onClick={handleLogout}
-              className="p-2 text-slate-400 hover:text-red-600 rounded-lg min-h-[40px] min-w-[40px] flex items-center justify-center"
+              className="p-2 text-slate-400 hover:text-red-600 rounded-xl min-h-[40px] min-w-[40px] flex items-center justify-center transition-colors active:scale-95"
               title="Çıkış Yap"
             >
-              <LogOut size={16} />
+              <LogOut size={17} />
             </button>
           </div>
         </header>
@@ -1301,7 +1309,45 @@ export default function App() {
                   <span className="text-[11px] text-slate-400">Giriş yapabilir</span>
                 </div>
 
-                <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
+                {/* Mobile User Cards (< sm) */}
+                <div className="sm:hidden divide-y divide-slate-100">
+                  {usersList.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 text-xs">
+                      Henüz kullanıcı bulunmuyor.
+                    </div>
+                  ) : (
+                    usersList.map((u, i) => (
+                      <div key={u.uid || i} className="p-3.5 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
+                            {getInitials(u.name)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs text-slate-800 truncate">{u.name}</p>
+                            <p className="text-[11px] font-mono text-slate-400 truncate">@{u.username}</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span
+                            className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                              u.role === 'admin'
+                                ? 'bg-violet-50 text-violet-700 border border-violet-200'
+                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            }`}
+                          >
+                            {u.role === 'admin' ? '👑 Admin' : '👤 Kullanıcı'}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {formatDateOnly(u.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Desktop User Table (>= sm) */}
+                <div className="hidden sm:block overflow-x-auto -webkit-overflow-scrolling-touch">
                   <table className="w-full text-left text-xs min-w-[420px]">
                     <thead className="bg-slate-50/80 border-b border-slate-200/60 text-slate-500 font-bold uppercase tracking-wider">
                       <tr>
@@ -1364,11 +1410,34 @@ export default function App() {
                   </p>
                 </div>
 
-                <div className="p-4 sm:p-6 lg:p-8">
+                <div className="p-3.5 sm:p-6 lg:p-8">
+                  {/* Mobile Segmented Control (Form vs Preview) */}
+                  <div className="lg:hidden flex items-center bg-slate-100 p-1 rounded-2xl mb-4 border border-slate-200/60">
+                    <button
+                      type="button"
+                      onClick={() => setMobileFormTab('form')}
+                      className={`flex-1 min-h-[40px] py-2 text-xs font-bold rounded-xl transition-all ${
+                        mobileFormTab === 'form' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      📝 Bilgileri Gir
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMobileFormTab('preview')}
+                      className={`flex-1 min-h-[40px] py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                        mobileFormTab === 'preview' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <Eye size={14} />
+                      <span>Afiş Ön İzleme</span>
+                    </button>
+                  </div>
+
                   <form onSubmit={handleSubmitRequest}>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
                       {/* Left Form Fields */}
-                      <div className="space-y-5 sm:space-y-6">
+                      <div className={`space-y-4 sm:space-y-6 ${mobileFormTab === 'preview' ? 'hidden lg:block' : 'block'}`}>
                         <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 sm:p-5">
                           <div className="flex items-center gap-2 mb-3.5 pb-2.5 border-b border-slate-200/60">
                             <span className="text-lg">🎪</span>
@@ -1554,42 +1623,45 @@ export default function App() {
                       </div>
 
                       {/* Right Live Poster Preview */}
-                      <div className="lg:sticky lg:top-24 mt-4 lg:mt-0">
-                        <div className="bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 border border-violet-100 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-md">
-                          <div className="flex items-center justify-between mb-4">
+                      <div className={`lg:sticky lg:top-24 mt-2 lg:mt-0 ${mobileFormTab === 'form' ? 'hidden lg:block' : 'block'}`}>
+                        <div className="bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 border border-violet-100 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-md">
+                          <div className="flex items-center justify-between mb-3 sm:mb-4">
                             <span className="text-xs font-black uppercase tracking-wider text-violet-800 flex items-center gap-1.5">
-                              <Eye size={14} /> Afiş Ön İzlemesi
+                              <Eye size={14} /> Afiş Canlı Ön İzlemesi
+                            </span>
+                            <span className="text-[10px] font-bold text-violet-600 bg-violet-100/80 px-2 py-0.5 rounded-full">
+                              Canlı Görünüm
                             </span>
                           </div>
 
-                          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm min-h-[300px] sm:min-h-[340px] flex flex-col justify-between">
+                          <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/90 shadow-sm min-h-[280px] sm:min-h-[340px] flex flex-col justify-between">
                             <div>
                               {formData.ekip && (
-                                <div className="inline-block px-2.5 py-1 bg-violet-100 text-violet-800 text-[10px] font-extrabold rounded-md uppercase tracking-wider mb-3">
+                                <div className="inline-block px-2.5 py-1 bg-violet-100 text-violet-800 text-[10px] font-extrabold rounded-md uppercase tracking-wider mb-2.5">
                                   {formData.ekip}
                                 </div>
                               )}
 
-                              <h3 className="text-lg sm:text-xl font-black text-slate-900 leading-snug mb-2">
+                              <h3 className="text-base sm:text-xl font-black text-slate-900 leading-snug mb-2">
                                 {formData.etkinlikAdi || (
                                   <span className="text-slate-300 italic">Etkinlik Adı Buraya Gelecek</span>
                                 )}
                               </h3>
 
                               {formData.altBaslik && (
-                                <p className="text-xs font-semibold text-violet-600 italic mb-3">
+                                <p className="text-xs font-semibold text-violet-600 italic mb-2.5">
                                   {formData.altBaslik}
                                 </p>
                               )}
 
                               {formData.aciklama && (
-                                <p className="text-xs text-slate-600 leading-relaxed mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                <p className="text-xs text-slate-600 leading-relaxed mb-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
                                   {formData.aciklama}
                                 </p>
                               )}
                             </div>
 
-                            <div className="pt-4 border-t border-slate-100 space-y-2 mt-4">
+                            <div className="pt-3 border-t border-slate-100 space-y-2 mt-3">
                               {(formData.tarih || formData.saat) && (
                                 <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
                                   <Calendar size={14} className="text-violet-600 shrink-0" />
@@ -1608,10 +1680,29 @@ export default function App() {
                               )}
 
                               {formData.ozelNot && (
-                                <div className="mt-3 pt-2 text-[11px] text-slate-500 italic border-t border-dashed border-slate-200">
+                                <div className="mt-2.5 pt-2 text-[11px] text-slate-500 italic border-t border-dashed border-slate-200">
                                   {formData.ozelNot}
                                 </div>
                               )}
+                            </div>
+
+                            {/* Mobile Quick Action Buttons on Preview */}
+                            <div className="lg:hidden mt-4 pt-3 border-t border-slate-100 flex flex-col gap-2">
+                              <button
+                                type="submit"
+                                disabled={submittingRequest}
+                                className="w-full min-h-[46px] py-2.5 bg-violet-600 hover:bg-violet-700 active:scale-[0.98] text-white text-xs font-bold rounded-xl shadow-md shadow-violet-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                              >
+                                <Send size={15} />
+                                <span>{submittingRequest ? 'İletiliyor…' : '📤 Talebi Onayla ve Gönder'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setMobileFormTab('form')}
+                                className="w-full min-h-[40px] py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+                              >
+                                ✏️ Bilgileri Düzenle
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -1624,8 +1715,88 @@ export default function App() {
           ) : (
             /* REQUESTS LIST (RESPONSIVE GRID & CARDS) */
             <div>
-              {/* Responsive Stats Bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 mb-6 sm:mb-8">
+              {/* Mobile Horizontal Swipeable Status Pills (< sm) */}
+              {currentUser.role === 'admin' && (
+                <div className="sm:hidden no-scrollbar flex items-center gap-2 overflow-x-auto pb-1 mb-3 -mx-4 px-4">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab('all')}
+                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
+                      activeTab === 'all'
+                        ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span>📋 Tümü</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                      {stats.total}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab('talep-alindi')}
+                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
+                      activeTab === 'talep-alindi'
+                        ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span>📥 Alındı</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'talep-alindi' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                      {stats.alindi}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab('tasarimda')}
+                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
+                      activeTab === 'tasarimda'
+                        ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span>🎨 Tasarım</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'tasarimda' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                      {stats.tasarimda}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab('merkez-onayinda')}
+                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
+                      activeTab === 'merkez-onayinda'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span>🔍 Onayda</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'merkez-onayinda' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                      {stats.merkez}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab('yayinlandi')}
+                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
+                      activeTab === 'yayinlandi'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span>✅ Yayınlandı</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'yayinlandi' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                      {stats.yayinlandi}
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {/* Desktop & Tablet Stats Grid (>= sm) */}
+              <div className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 mb-6 sm:mb-8">
                 <div
                   onClick={() => handleSelectTab('all')}
                   className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden cursor-pointer transition-all ${
@@ -1706,7 +1877,7 @@ export default function App() {
 
                 <div
                   onClick={() => currentUser.role === 'admin' && handleSelectTab('yayinlandi')}
-                  className={`col-span-2 sm:col-span-1 bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all ${
+                  className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all ${
                     currentUser.role === 'admin' ? 'cursor-pointer' : ''
                   } ${
                     activeTab === 'yayinlandi' ? 'border-emerald-500 ring-2 ring-emerald-500/10' : 'border-slate-200/80 hover:border-slate-300'
@@ -1726,7 +1897,7 @@ export default function App() {
               </div>
 
               {/* Responsive Filter and Search Bar */}
-              <div className="bg-white border border-slate-200/80 rounded-2xl p-3.5 sm:p-4 mb-5 sm:mb-6 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-4 mb-4 sm:mb-6 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-4">
                 <div className="relative w-full sm:max-w-xs">
                   <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -1734,8 +1905,17 @@ export default function App() {
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="Etkinlik, ekip veya kişi ara…"
-                    className="w-full min-h-[42px] pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
+                    className="w-full min-h-[44px] pl-9 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 placeholder:text-slate-400"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -1926,96 +2106,142 @@ export default function App() {
       </div>
 
       {/* ════ MOBILE BOTTOM NAVIGATION BAR (< 1024px) ════ */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 py-1.5 flex items-center justify-around shadow-lg">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200/90 pb-safe pt-2 px-3 shadow-xl">
         {currentUser.role === 'admin' ? (
-          <>
+          <div className="flex items-center justify-around w-full max-w-lg mx-auto">
             <button
               onClick={() => handleSelectTab('all')}
-              className={`flex flex-col items-center justify-center min-w-[48px] min-h-[44px] py-1 px-2 rounded-xl transition-colors ${
-                activeTab === 'all' ? 'text-violet-700 font-bold' : 'text-slate-500 hover:text-slate-800'
+              className={`flex flex-col items-center justify-center min-w-[50px] min-h-[44px] py-1 px-1.5 rounded-xl transition-all active:scale-95 ${
+                activeTab === 'all' ? 'text-violet-700 font-extrabold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <span className="text-base leading-none">📋</span>
-              <span className="text-[10px] mt-1 font-semibold">Tümü</span>
+              <div className="relative">
+                <span className="text-lg leading-none">📋</span>
+                <span className="absolute -top-1.5 -right-2 px-1.5 py-0.2 rounded-full bg-violet-600 text-white text-[9px] font-bold">
+                  {stats.total}
+                </span>
+              </div>
+              <span className="text-[10px] mt-1 font-bold">Tümü</span>
             </button>
 
             <button
               onClick={() => handleSelectTab('talep-alindi')}
-              className={`flex flex-col items-center justify-center min-w-[48px] min-h-[44px] py-1 px-2 rounded-xl transition-colors ${
-                activeTab === 'talep-alindi' ? 'text-slate-900 font-bold' : 'text-slate-500 hover:text-slate-800'
+              className={`flex flex-col items-center justify-center min-w-[50px] min-h-[44px] py-1 px-1.5 rounded-xl transition-all active:scale-95 ${
+                activeTab === 'talep-alindi' ? 'text-slate-900 font-extrabold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <span className="text-base leading-none">📥</span>
-              <span className="text-[10px] mt-1 font-semibold">Alındı</span>
+              <div className="relative">
+                <span className="text-lg leading-none">📥</span>
+                {stats.alindi > 0 && (
+                  <span className="absolute -top-1.5 -right-2 px-1.5 py-0.2 rounded-full bg-slate-700 text-white text-[9px] font-bold">
+                    {stats.alindi}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] mt-1 font-bold">Alındı</span>
             </button>
 
             <button
               onClick={() => handleSelectTab('tasarimda')}
-              className={`flex flex-col items-center justify-center min-w-[48px] min-h-[44px] py-1 px-2 rounded-xl transition-colors ${
-                activeTab === 'tasarimda' ? 'text-amber-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+              className={`flex flex-col items-center justify-center min-w-[50px] min-h-[44px] py-1 px-1.5 rounded-xl transition-all active:scale-95 ${
+                activeTab === 'tasarimda' ? 'text-amber-600 font-extrabold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <span className="text-base leading-none">🎨</span>
-              <span className="text-[10px] mt-1 font-semibold">Tasarım</span>
+              <div className="relative">
+                <span className="text-lg leading-none">🎨</span>
+                {stats.tasarimda > 0 && (
+                  <span className="absolute -top-1.5 -right-2 px-1.5 py-0.2 rounded-full bg-amber-500 text-white text-[9px] font-bold">
+                    {stats.tasarimda}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] mt-1 font-bold">Tasarım</span>
             </button>
 
             <button
               onClick={() => handleSelectTab('merkez-onayinda')}
-              className={`flex flex-col items-center justify-center min-w-[48px] min-h-[44px] py-1 px-2 rounded-xl transition-colors ${
-                activeTab === 'merkez-onayinda' ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+              className={`flex flex-col items-center justify-center min-w-[50px] min-h-[44px] py-1 px-1.5 rounded-xl transition-all active:scale-95 ${
+                activeTab === 'merkez-onayinda' ? 'text-blue-600 font-extrabold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <span className="text-base leading-none">🔍</span>
-              <span className="text-[10px] mt-1 font-semibold">Onay</span>
+              <div className="relative">
+                <span className="text-lg leading-none">🔍</span>
+                {stats.merkez > 0 && (
+                  <span className="absolute -top-1.5 -right-2 px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[9px] font-bold">
+                    {stats.merkez}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] mt-1 font-bold">Onay</span>
             </button>
 
             <button
               onClick={() => handleSelectTab('users')}
-              className={`flex flex-col items-center justify-center min-w-[48px] min-h-[44px] py-1 px-2 rounded-xl transition-colors ${
-                activeTab === 'users' ? 'text-violet-700 font-bold' : 'text-slate-500 hover:text-slate-800'
+              className={`flex flex-col items-center justify-center min-w-[50px] min-h-[44px] py-1 px-1.5 rounded-xl transition-all active:scale-95 ${
+                activeTab === 'users' ? 'text-violet-700 font-extrabold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <span className="text-base leading-none">👥</span>
-              <span className="text-[10px] mt-1 font-semibold">Kullanıcı</span>
+              <div className="relative">
+                <span className="text-lg leading-none">👥</span>
+                <span className="absolute -top-1.5 -right-2 px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 text-[9px] font-bold">
+                  {usersList.length}
+                </span>
+              </div>
+              <span className="text-[10px] mt-1 font-bold">Ekip</span>
             </button>
-          </>
+          </div>
         ) : (
-          <>
+          <div className="flex items-center justify-between w-full max-w-sm mx-auto px-4">
             <button
               onClick={() => handleSelectTab('requests')}
-              className={`flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 px-2 rounded-xl transition-colors ${
-                activeTab === 'requests' ? 'text-violet-700 font-bold' : 'text-slate-500 hover:text-slate-800'
+              className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all active:scale-95 ${
+                activeTab === 'requests' ? 'text-violet-700 font-bold scale-105' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <span className="text-lg leading-none">📋</span>
-              <span className="text-[11px] mt-1 font-semibold">Taleplerim ({requests.length})</span>
+              <span className="text-xl leading-none">📋</span>
+              <span className="text-[10px] mt-1 font-bold">Taleplerim ({requests.length})</span>
             </button>
 
+            {/* Elevated Hero Center Floating Button for New Request */}
             <button
               onClick={() => handleSelectTab('new')}
-              className="flex items-center justify-center gap-1.5 min-h-[44px] px-5 py-2 rounded-xl bg-violet-600 text-white font-bold text-xs shadow-md shadow-violet-200 active:scale-[0.98]"
+              className={`-mt-6 w-14 h-14 rounded-full flex flex-col items-center justify-center shadow-lg shadow-violet-500/35 transition-all active:scale-90 border-2 border-white ${
+                activeTab === 'new'
+                  ? 'bg-slate-900 text-white ring-4 ring-violet-200'
+                  : 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white'
+              }`}
+              title="Yeni Afiş Talebi Oluştur"
+              aria-label="Yeni Afiş Talebi"
             >
-              <Plus size={16} />
-              <span>Yeni Talep</span>
+              <Plus size={26} />
             </button>
 
             <button
               onClick={handleLogout}
-              className="flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 px-2 text-slate-500 hover:text-red-600 rounded-xl transition-colors"
+              className="flex flex-col items-center justify-center py-1 px-3 text-slate-500 hover:text-red-600 rounded-2xl transition-all active:scale-95"
             >
-              <LogOut size={18} />
-              <span className="text-[11px] mt-1 font-semibold">Çıkış</span>
+              <LogOut size={20} />
+              <span className="text-[10px] mt-1 font-bold">Çıkış</span>
             </button>
-          </>
+          </div>
         )}
       </nav>
 
-      {/* ════ DETAIL & ADMIN STATUS CHANGER MODAL (RESPONSIVE) ════ */}
+      {/* ════ DETAIL & ADMIN STATUS CHANGER MODAL (BOTTOM SHEET ON MOBILE) ════ */}
       {selectedRequest && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 my-auto animate-scale-in">
+        <div
+          onClick={() => setSelectedRequest(null)}
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-t-3xl sm:rounded-3xl max-w-xl w-full max-h-[90vh] sm:max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 animate-sheet-up sm:animate-scale-in overflow-hidden"
+          >
+            {/* Mobile Sheet Drag Indicator */}
+            <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto my-2.5 sm:hidden shrink-0" />
+
             {/* Modal Header */}
-            <div className="p-4 sm:p-6 border-b border-slate-100 flex items-start justify-between gap-3">
+            <div className="px-4 py-3 sm:p-6 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
               <div className="min-w-0">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-violet-600 block mb-0.5 truncate">
                   {selectedRequest.ekip}
@@ -2026,14 +2252,14 @@ export default function App() {
               </div>
               <button
                 onClick={() => setSelectedRequest(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors shrink-0 min-h-[32px] min-w-[32px]"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors shrink-0 min-h-[36px] min-w-[36px]"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
             {/* Modal Content */}
-            <div className="p-4 sm:p-6 space-y-5">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1">
               {/* Poster Preview */}
               <div className="bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100 rounded-2xl p-4 sm:p-5 shadow-xs">
                 <span className="text-[10px] font-bold text-violet-700 uppercase tracking-wider block mb-2">
@@ -2068,7 +2294,7 @@ export default function App() {
               </div>
 
               {/* Metadata Grid (Prominent Request Date) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50 p-4 rounded-xl border border-slate-200/60">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-xs bg-slate-50 p-3.5 sm:p-4 rounded-xl border border-slate-200/60">
                 <div>
                   <span className="text-slate-400 block font-semibold mb-0.5">📅 Talep Edilme Tarihi</span>
                   <span className="font-bold text-violet-700">{formatDateTime(selectedRequest.createdAt)}</span>
@@ -2095,15 +2321,15 @@ export default function App() {
 
               {/* Admin Stage Controls */}
               {currentUser.role === 'admin' && (
-                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4">
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 sm:p-4">
                   <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">
                     🔄 Aşamayı Güncelle
                   </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => handleUpdateStatus('talep-alindi')}
                       disabled={updatingStatus}
-                      className={`min-h-[44px] py-2 px-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                      className={`min-h-[46px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 active:scale-95 ${
                         selectedRequest.status === 'talep-alindi'
                           ? 'bg-slate-700 text-white border-slate-800 shadow-xs'
                           : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
@@ -2115,7 +2341,7 @@ export default function App() {
                     <button
                       onClick={() => handleUpdateStatus('tasarimda')}
                       disabled={updatingStatus}
-                      className={`min-h-[44px] py-2 px-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                      className={`min-h-[46px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 active:scale-95 ${
                         selectedRequest.status === 'tasarimda'
                           ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
                           : 'bg-white hover:bg-amber-50 text-slate-700 border-slate-200'
@@ -2127,7 +2353,7 @@ export default function App() {
                     <button
                       onClick={() => handleUpdateStatus('merkez-onayinda')}
                       disabled={updatingStatus}
-                      className={`min-h-[44px] py-2 px-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                      className={`min-h-[46px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 active:scale-95 ${
                         selectedRequest.status === 'merkez-onayinda'
                           ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
                           : 'bg-white hover:bg-blue-50 text-slate-700 border-slate-200'
@@ -2139,7 +2365,7 @@ export default function App() {
                     <button
                       onClick={() => handleUpdateStatus('yayinlandi')}
                       disabled={updatingStatus}
-                      className={`min-h-[44px] py-2 px-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                      className={`min-h-[46px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 active:scale-95 ${
                         selectedRequest.status === 'yayinlandi'
                           ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
                           : 'bg-white hover:bg-emerald-50 text-slate-700 border-slate-200'
@@ -2152,13 +2378,13 @@ export default function App() {
               )}
             </div>
 
-            {/* Modal Footer */}
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
+            {/* Modal Footer with pb-safe */}
+            <div className="p-3.5 sm:p-4 pb-safe bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
               {currentUser.role === 'admin' ? (
                 <button
                   type="button"
                   onClick={() => setRequestToDelete(selectedRequest)}
-                  className="min-h-[40px] px-3.5 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
+                  className="min-h-[42px] px-3.5 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 active:scale-95"
                 >
                   <Trash2 size={14} />
                   <span>Etkinliği Sil</span>
@@ -2167,7 +2393,7 @@ export default function App() {
 
               <button
                 onClick={() => setSelectedRequest(null)}
-                className="min-h-[40px] px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+                className="min-h-[42px] px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-colors active:scale-95"
               >
                 Kapat
               </button>
@@ -2176,11 +2402,20 @@ export default function App() {
         </div>
       )}
 
-      {/* ════ DELETE CONFIRMATION MODAL ════ */}
+      {/* ════ DELETE CONFIRMATION MODAL (BOTTOM SHEET ON MOBILE) ════ */}
       {requestToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-scale-in">
-            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center text-xl mb-4">
+        <div
+          onClick={() => setRequestToDelete(null)}
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 pb-safe sm:pb-6 shadow-2xl border border-slate-200 animate-sheet-up sm:animate-scale-in"
+          >
+            {/* Mobile Drag Indicator */}
+            <div className="w-10 h-1.5 bg-slate-300 rounded-full mx-auto mb-3.5 sm:hidden" />
+
+            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center text-xl mb-3">
               🗑️
             </div>
             <h3 className="text-base sm:text-lg font-black text-slate-900 mb-1.5">
@@ -2190,12 +2425,12 @@ export default function App() {
               <strong className="text-slate-900 font-bold">"{requestToDelete.etkinlikAdi}"</strong> başlıklı etkinlik ve afiş talebi kalıcı olarak veritabanından silinecektir. Bu işlem geri alınamaz.
             </p>
 
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 disabled={deletingRequest}
                 onClick={() => setRequestToDelete(null)}
-                className="min-h-[42px] px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+                className="w-full sm:w-auto min-h-[44px] px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors disabled:opacity-50 order-2 sm:order-1"
               >
                 Vazgeç
               </button>
@@ -2203,7 +2438,7 @@ export default function App() {
                 type="button"
                 disabled={deletingRequest}
                 onClick={() => handleDeleteRequest(requestToDelete)}
-                className="min-h-[42px] px-5 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-md shadow-red-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full sm:w-auto min-h-[44px] px-5 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-md shadow-red-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50 order-1 sm:order-2"
               >
                 {deletingRequest ? (
                   <>
@@ -2220,9 +2455,9 @@ export default function App() {
         </div>
       )}
 
-      {/* ════ TOAST NOTIFICATION ════ */}
+      {/* ════ TOAST NOTIFICATION (MOBILE SAFE POSITION) ════ */}
       {toast && (
-        <div className="fixed bottom-20 lg:bottom-6 right-4 sm:right-6 z-50 bg-slate-900 text-white px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 text-xs font-semibold animate-fade-in border border-slate-800 max-w-[90vw]">
+        <div className="fixed bottom-24 lg:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md mx-auto sm:mx-0 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs font-semibold animate-fade-in border border-slate-800">
           <span>{toast.message}</span>
         </div>
       )}
