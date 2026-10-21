@@ -28,6 +28,10 @@ export interface PosterRequest {
   };
   createdAt?: any;
   updatedAt?: any;
+  hasUserChanges?: boolean;
+  userChangesNote?: string;
+  lastUserChangeAt?: any;
+  adminAcknowledgedChange?: boolean;
 }
 
 export const STATUS_CONFIG: Record<

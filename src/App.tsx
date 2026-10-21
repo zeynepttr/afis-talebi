@@ -47,7 +47,9 @@ import {
   Inbox,
   Check,
   ChevronDown,
-  Trash2
+  Trash2,
+  Edit3,
+  AlertTriangle
 } from 'lucide-react';
 
 const INITIAL_DEFAULT_REQUESTS: PosterRequest[] = [
@@ -136,6 +138,22 @@ export default function App() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [requestToDelete, setRequestToDelete] = useState<PosterRequest | null>(null);
   const [deletingRequest, setDeletingRequest] = useState(false);
+
+  // ── Edit Request State (User) ──
+  const [requestToEdit, setRequestToEdit] = useState<PosterRequest | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    etkinlikAdi: '',
+    ekip: '',
+    altBaslik: '',
+    aciklama: '',
+    tarih: '',
+    saat: '',
+    mekan: '',
+    ozelNot: '',
+    userChangesNote: ''
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
 
   // ── User Creation Form (Admin) ──
   const [newFullname, setNewFullname] = useState('');
@@ -582,6 +600,137 @@ export default function App() {
   };
 
   // ─────────────────────────────────────────────────────────────
+  // 6c. USER ACTION: START EDITING REQUEST (BEFORE 'yayinlandi')
+  // ─────────────────────────────────────────────────────────────
+  const handleStartEdit = (req: PosterRequest) => {
+    if (req.status === 'yayinlandi') {
+      showToast('Afiş yayınlandığı için bu aşamada değişiklik yapılamaz. 🔒', 'error');
+      return;
+    }
+    setRequestToEdit(req);
+    setEditFormData({
+      etkinlikAdi: req.etkinlikAdi || '',
+      ekip: req.ekip || '',
+      altBaslik: req.altBaslik || '',
+      aciklama: req.aciklama || '',
+      tarih: req.tarih || '',
+      saat: req.saat || '',
+      mekan: req.mekan || '',
+      ozelNot: req.ozelNot || '',
+      userChangesNote: req.userChangesNote || ''
+    });
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // 6d. USER ACTION: SAVE EDITED REQUEST (FLAGS RED WARNING TO ADMIN)
+  // ─────────────────────────────────────────────────────────────
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requestToEdit || !requestToEdit.id) return;
+
+    if (requestToEdit.status === 'yayinlandi') {
+      showToast('Afiş yayınlandı aşamasında değişiklik yapılamaz. 🔒', 'error');
+      setRequestToEdit(null);
+      return;
+    }
+
+    if (!editFormData.etkinlikAdi.trim()) {
+      showToast('Lütfen etkinlik adını girin.', 'error');
+      return;
+    }
+    if (!editFormData.ekip.trim()) {
+      showToast('Lütfen ekip bilgisini girin.', 'error');
+      return;
+    }
+    if (!editFormData.tarih) {
+      showToast('Lütfen etkinlik tarihini seçin.', 'error');
+      return;
+    }
+    if (!editFormData.saat) {
+      showToast('Lütfen etkinlik saatini seçin.', 'error');
+      return;
+    }
+    if (!editFormData.mekan.trim()) {
+      showToast('Lütfen etkinlik mekanını girin.', 'error');
+      return;
+    }
+
+    setSavingEdit(true);
+    const nowTimestamp = Date.now();
+
+    const updatedFields = {
+      etkinlikAdi: editFormData.etkinlikAdi.trim(),
+      ekip: editFormData.ekip.trim(),
+      altBaslik: editFormData.altBaslik.trim(),
+      aciklama: editFormData.aciklama.trim(),
+      tarih: editFormData.tarih,
+      saat: editFormData.saat,
+      mekan: editFormData.mekan.trim(),
+      ozelNot: editFormData.ozelNot.trim(),
+      hasUserChanges: true,
+      lastUserChangeAt: nowTimestamp,
+      adminAcknowledgedChange: false,
+      userChangesNote: editFormData.userChangesNote.trim() || 'Bilgiler talep sahibi tarafından güncellendi.',
+      updatedAt: nowTimestamp
+    };
+
+    try {
+      await rtdbUpdate(rtdbRef(rtdb, `requests/${requestToEdit.id}`), updatedFields);
+
+      setRequests(prev => prev.map(r => r.id === requestToEdit.id ? { ...r, ...updatedFields } : r));
+
+      if (selectedRequest?.id === requestToEdit.id) {
+        setSelectedRequest(prev => prev ? { ...prev, ...updatedFields } : null);
+      }
+
+      setRequestToEdit(null);
+      showToast('Değişiklikler kaydedildi! Yönetici paneline kırmızı uyarı iletildi. 🚨', 'success');
+    } catch (err: any) {
+      console.error("Save edit error:", err);
+      // Fallback local update
+      setRequests(prev => prev.map(r => r.id === requestToEdit.id ? { ...r, ...updatedFields } : r));
+      if (selectedRequest?.id === requestToEdit.id) {
+        setSelectedRequest(prev => prev ? { ...prev, ...updatedFields } : null);
+      }
+      setRequestToEdit(null);
+      showToast('Değişiklikler kaydedildi! (Yöneticiye kırmızı uyarı bildirildi) 🚨', 'success');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // 6e. ADMIN ACTION: ACKNOWLEDGE USER CHANGE (DISMISS RED ALERT)
+  // ─────────────────────────────────────────────────────────────
+  const handleAcknowledgeChange = async (requestId: string) => {
+    if (!requestId) return;
+    setAcknowledgingId(requestId);
+
+    try {
+      await rtdbUpdate(rtdbRef(rtdb, `requests/${requestId}`), {
+        adminAcknowledgedChange: true
+      });
+
+      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, adminAcknowledgedChange: true } : r));
+
+      if (selectedRequest?.id === requestId) {
+        setSelectedRequest(prev => prev ? { ...prev, adminAcknowledgedChange: true } : null);
+      }
+
+      showToast('Değişiklik incelendi olarak işaretlendi. Kırmızı uyarı kapatıldı. ✓', 'info');
+    } catch (err: any) {
+      console.error("Acknowledge change error:", err);
+      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, adminAcknowledgedChange: true } : r));
+      if (selectedRequest?.id === requestId) {
+        setSelectedRequest(prev => prev ? { ...prev, adminAcknowledgedChange: true } : null);
+      }
+      showToast('Uyarı kapatıldı. ✓', 'info');
+    } finally {
+      setAcknowledgingId(null);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
   // 7. USER ACTION: SUBMIT REQUEST (STARTS AT 'talep-alindi' & NO HANG)
   // ─────────────────────────────────────────────────────────────
   const handleSubmitRequest = async (e: React.FormEvent) => {
@@ -672,7 +821,9 @@ export default function App() {
   const filteredRequests = useMemo(() => {
     let list = [...requests];
 
-    if (currentUser?.role === 'admin' && activeTab !== 'all' && activeTab !== 'users') {
+    if (activeTab === 'changed') {
+      list = list.filter(r => r.hasUserChanges && !r.adminAcknowledgedChange);
+    } else if (currentUser?.role === 'admin' && activeTab !== 'all' && activeTab !== 'users') {
       list = list.filter(r => r.status === activeTab);
     }
 
@@ -683,7 +834,8 @@ export default function App() {
           (r.etkinlikAdi || '').toLowerCase().includes(q) ||
           (r.createdBy?.name || '').toLowerCase().includes(q) ||
           (r.ekip || '').toLowerCase().includes(q) ||
-          (r.mekan || '').toLowerCase().includes(q)
+          (r.mekan || '').toLowerCase().includes(q) ||
+          (r.userChangesNote || '').toLowerCase().includes(q)
       );
     }
 
@@ -708,7 +860,8 @@ export default function App() {
       alindi: requests.filter(r => r.status === 'talep-alindi').length,
       tasarimda: requests.filter(r => r.status === 'tasarimda').length,
       merkez: requests.filter(r => r.status === 'merkez-onayinda').length,
-      yayinlandi: requests.filter(r => r.status === 'yayinlandi').length
+      yayinlandi: requests.filter(r => r.status === 'yayinlandi').length,
+      changed: requests.filter(r => r.hasUserChanges && !r.adminAcknowledgedChange).length
     };
   }, [requests]);
 
@@ -1038,6 +1191,31 @@ export default function App() {
                 </span>
               </button>
 
+              <button
+                onClick={() => handleSelectTab('changed')}
+                className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  activeTab === 'changed'
+                    ? 'bg-red-50 text-red-700 border border-red-200 font-bold'
+                    : stats.changed > 0
+                    ? 'bg-red-50/70 text-red-700 hover:bg-red-100/80 font-bold border border-red-200 shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">🚨</span>
+                  <span>Değiştirilen Talepler</span>
+                </div>
+                {stats.changed > 0 ? (
+                  <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold animate-pulse shadow-xs">
+                    {stats.changed} UYARI
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold">
+                    0
+                  </span>
+                )}
+              </button>
+
               <div className="px-3 pt-5 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
                 Yönetim &amp; Ekip
               </div>
@@ -1145,6 +1323,17 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-1.5">
+            {currentUser.role === 'admin' && stats.changed > 0 && (
+              <button
+                onClick={() => handleSelectTab('changed')}
+                className="py-1 px-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-[11px] font-black rounded-xl shadow-xs flex items-center gap-1 min-h-[36px] transition-transform animate-pulse"
+                title={`${stats.changed} adet değiştirilen talep var!`}
+              >
+                <AlertTriangle size={13} />
+                <span>{stats.changed} UYARI</span>
+              </button>
+            )}
+
             {currentUser.role === 'user' && activeTab !== 'new' && (
               <button
                 onClick={() => handleSelectTab('new')}
@@ -1172,6 +1361,8 @@ export default function App() {
               {currentUser.role === 'admin'
                 ? activeTab === 'users'
                   ? 'Kullanıcı Yönetimi'
+                  : activeTab === 'changed'
+                  ? '🚨 Değiştirilen Afiş Talepleri'
                   : activeTab === 'all'
                   ? 'Tüm Afiş Talepleri'
                   : STATUS_CONFIG[activeTab as RequestStatus]?.label || 'Talepler'
@@ -1181,12 +1372,24 @@ export default function App() {
             </h1>
             <p className="text-xs text-slate-500">
               {currentUser.role === 'admin'
-                ? 'Afiş taleplerini inceleyin, aşamaları yönetin ve kullanıcı ekleyin.'
+                ? activeTab === 'changed'
+                  ? 'Kullanıcıların onay/tasarım aşamasında değişiklik yaptığı talepler (Kırmızı Uyarı)'
+                  : 'Afiş taleplerini inceleyin, aşamaları yönetin ve kullanıcı ekleyin.'
                 : 'Etkinlikleriniz için afiş talebi oluşturun ve durumunu takip edin.'}
             </p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {currentUser.role === 'admin' && stats.changed > 0 && (
+              <button
+                onClick={() => handleSelectTab('changed')}
+                className="py-1.5 px-3.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-md shadow-red-200 animate-pulse"
+              >
+                <AlertTriangle size={15} />
+                <span>{stats.changed} Değişiklik Uyarısı</span>
+              </button>
+            )}
+
             <div className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full flex items-center gap-1.5">
               <Clock size={13} className="text-slate-400" />
               <span>{currentTime}</span>
@@ -1733,6 +1936,24 @@ export default function App() {
                     </span>
                   </button>
 
+                  {/* Red Warning Pill for Changed Requests */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab('changed')}
+                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
+                      activeTab === 'changed'
+                        ? 'bg-red-600 text-white border-red-600 shadow-sm ring-2 ring-red-300'
+                        : stats.changed > 0
+                        ? 'bg-red-50 text-red-700 border-red-300 animate-pulse'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span>🚨 Değişenler</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'changed' ? 'bg-white/20 text-white' : stats.changed > 0 ? 'bg-red-600 text-white font-black' : 'bg-slate-100 text-slate-700'}`}>
+                      {stats.changed}
+                    </span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => handleSelectTab('talep-alindi')}
@@ -1796,7 +2017,7 @@ export default function App() {
               )}
 
               {/* Desktop & Tablet Stats Grid (>= sm) */}
-              <div className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 mb-6 sm:mb-8">
+              <div className={`hidden sm:grid ${currentUser.role === 'admin' ? 'sm:grid-cols-3 lg:grid-cols-6' : 'sm:grid-cols-3 lg:grid-cols-5'} gap-2.5 sm:gap-3.5 mb-6 sm:mb-8`}>
                 <div
                   onClick={() => handleSelectTab('all')}
                   className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden cursor-pointer transition-all ${
@@ -1814,6 +2035,34 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+
+                {currentUser.role === 'admin' && (
+                  <div
+                    onClick={() => handleSelectTab('changed')}
+                    className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all cursor-pointer ${
+                      activeTab === 'changed'
+                        ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30'
+                        : stats.changed > 0
+                        ? 'border-red-300 bg-red-50/40 hover:border-red-400'
+                        : 'border-slate-200/80 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className={`absolute top-0 left-0 right-0 h-1 ${stats.changed > 0 ? 'bg-red-600 animate-pulse' : 'bg-slate-300'}`} />
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className={`text-xl sm:text-2xl font-black ${stats.changed > 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                          {stats.changed}
+                        </p>
+                        <p className="text-[11px] sm:text-xs font-semibold text-slate-500">Değiştirilen</p>
+                      </div>
+                      <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-sm sm:text-base ${
+                        stats.changed > 0 ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-400'
+                      }`}>
+                        🚨
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div
                   onClick={() => currentUser.role === 'admin' && handleSelectTab('talep-alindi')}
@@ -1979,13 +2228,34 @@ export default function App() {
                 <div className="space-y-3">
                   {filteredRequests.map((req, index) => {
                     const cfg = STATUS_CONFIG[req.status] || STATUS_CONFIG['talep-alindi'];
+                    const hasUnseenChanges = Boolean(req.hasUserChanges && !req.adminAcknowledgedChange);
+
                     return (
                       <div
                         key={req.id || index}
                         onClick={() => setSelectedRequest(req)}
-                        className={`bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all cursor-pointer border-l-4 ${cfg.borderColor} flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4`}
+                        className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4 ${
+                          hasUnseenChanges
+                            ? 'border-red-300 border-l-4 border-l-red-600 bg-red-50/20 ring-2 ring-red-400/40 shadow-sm'
+                            : `border-slate-200/80 border-l-4 ${cfg.borderColor}`
+                        }`}
                       >
                         <div className="flex-1 min-w-0 w-full">
+                          {/* UNSEEN USER CHANGES RED ALERT BANNER FOR ADMIN & USER */}
+                          {hasUnseenChanges && (
+                            <div className="mb-2.5 p-2 sm:p-2.5 rounded-xl bg-red-600 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs animate-pulse">
+                              <div className="flex items-center gap-1.5 text-xs font-black">
+                                <AlertTriangle size={15} className="shrink-0" />
+                                <span>🚨 DİKKAT: KULLANICI DEĞİŞİKLİK YAPTI!</span>
+                              </div>
+                              {req.userChangesNote && (
+                                <span className="text-[11px] font-semibold text-red-100 truncate max-w-xs">
+                                  Not: "{req.userChangesNote}"
+                                </span>
+                              )}
+                            </div>
+                          )}
+
                           {/* Header row with badges & dates */}
                           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
                             <span className="text-xs font-mono font-bold text-slate-400">#{index + 1}</span>
@@ -1998,6 +2268,17 @@ export default function App() {
                               <span className="truncate">Talep: {formatDateTime(req.createdAt)}</span>
                               <span className="text-slate-400 font-normal">({formatRelative(req.createdAt)})</span>
                             </span>
+
+                            {req.hasUserChanges && (
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                                hasUnseenChanges
+                                  ? 'bg-red-100 text-red-700 border border-red-200'
+                                  : 'bg-slate-100 text-slate-600'
+                              }`}>
+                                <span>✏️</span>
+                                <span>{hasUnseenChanges ? 'Yeni Değişiklik' : 'Düzenlendi'}</span>
+                              </span>
+                            )}
                           </div>
 
                           <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate mb-2">
@@ -2068,13 +2349,39 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div className="shrink-0 flex items-center justify-between w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 gap-2.5">
+                        <div className="shrink-0 flex items-center justify-between w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 gap-2">
                           <span
                             className={`px-3 py-1 rounded-full font-bold text-xs border flex items-center gap-1.5 ${cfg.badgeBg}`}
                           >
                             <span>{cfg.icon}</span>
                             <span>{cfg.label}</span>
                           </span>
+
+                          {/* USER EDIT BUTTON: Available before 'yayinlandi' */}
+                          {currentUser.role === 'user' && (
+                            req.status !== 'yayinlandi' ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStartEdit(req);
+                                }}
+                                className="min-h-[36px] px-3 py-1 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1"
+                                title="Afiş yayınlanmadan önce düzenle"
+                              >
+                                <Edit3 size={13} />
+                                <span>Düzenle</span>
+                              </button>
+                            ) : (
+                              <span
+                                className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-400 text-[10px] font-bold border border-slate-200 flex items-center gap-1"
+                                title="Yayınlandı aşamasına geçen afişler düzenlenemez"
+                              >
+                                <Lock size={11} />
+                                <span>Kilitli</span>
+                              </span>
+                            )
+                          )}
 
                           {currentUser.role === 'admin' && (
                             <button
@@ -2260,6 +2567,59 @@ export default function App() {
 
             {/* Modal Content */}
             <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1">
+              {/* UNSEEN USER CHANGES RED ALERT BOX */}
+              {selectedRequest.hasUserChanges && !selectedRequest.adminAcknowledgedChange && (
+                <div className="bg-red-600 text-white rounded-2xl p-4 sm:p-5 shadow-lg border border-red-700 space-y-2.5 animate-pulse">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle size={22} className="shrink-0 text-white" />
+                      <span className="font-black text-sm sm:text-base leading-tight">
+                        🚨 DİKKAT: TALEP SAHİBİ DEĞİŞİKLİK YAPTI!
+                      </span>
+                    </div>
+                    {currentUser.role === 'admin' && (
+                      <button
+                        type="button"
+                        disabled={acknowledgingId === selectedRequest.id}
+                        onClick={() => handleAcknowledgeChange(selectedRequest.id)}
+                        className="px-3.5 py-2 bg-white text-red-700 hover:bg-red-50 active:scale-95 text-xs font-black rounded-xl shadow-xs transition-transform shrink-0"
+                      >
+                        {acknowledgingId === selectedRequest.id ? 'İşleniyor…' : '✓ İnceledim (Kırmızı Uyarıyı Kapat)'}
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-red-100 font-medium leading-relaxed">
+                    Kullanıcı bu afiş talebinde sonradan değişiklik yapmıştır. Lütfen güncellenen bilgileri kontrol ediniz.
+                  </p>
+                  {selectedRequest.userChangesNote && (
+                    <div className="bg-red-700/90 p-3 rounded-xl text-xs font-semibold text-white border border-red-500/60">
+                      <span className="font-bold text-red-200 block text-[10px] uppercase tracking-wider mb-0.5">
+                        Kullanıcının Notu:
+                      </span>
+                      "{selectedRequest.userChangesNote}"
+                    </div>
+                  )}
+                  {selectedRequest.lastUserChangeAt && (
+                    <div className="text-[11px] text-red-200 font-medium">
+                      Son Değiştirilme Zamanı: {formatDateTime(selectedRequest.lastUserChangeAt)}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Already Acknowledged Info Pill */}
+              {selectedRequest.hasUserChanges && selectedRequest.adminAcknowledgedChange && (
+                <div className="bg-slate-100 border border-slate-200 rounded-xl p-3 text-xs text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                    <span>Bu talepte kullanıcı tarafından düzenleme yapılmıştır (Yönetici tarafından incelendi).</span>
+                  </div>
+                  {selectedRequest.userChangesNote && (
+                    <span className="text-[11px] text-slate-500 italic truncate max-w-xs">"{selectedRequest.userChangesNote}"</span>
+                  )}
+                </div>
+              )}
+
               {/* Poster Preview */}
               <div className="bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100 rounded-2xl p-4 sm:p-5 shadow-xs">
                 <span className="text-[10px] font-bold text-violet-700 uppercase tracking-wider block mb-2">
@@ -2380,16 +2740,41 @@ export default function App() {
 
             {/* Modal Footer with pb-safe */}
             <div className="p-3.5 sm:p-4 pb-safe bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
-              {currentUser.role === 'admin' ? (
-                <button
-                  type="button"
-                  onClick={() => setRequestToDelete(selectedRequest)}
-                  className="min-h-[42px] px-3.5 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 active:scale-95"
-                >
-                  <Trash2 size={14} />
-                  <span>Etkinliği Sil</span>
-                </button>
-              ) : <div />}
+              <div className="flex items-center gap-2">
+                {currentUser.role === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => setRequestToDelete(selectedRequest)}
+                    className="min-h-[42px] px-3.5 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 active:scale-95"
+                  >
+                    <Trash2 size={14} />
+                    <span>Etkinliği Sil</span>
+                  </button>
+                )}
+
+                {/* USER EDIT BUTTON */}
+                {currentUser.role === 'user' && (
+                  selectedRequest.status !== 'yayinlandi' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = selectedRequest;
+                        setSelectedRequest(null);
+                        handleStartEdit(target);
+                      }}
+                      className="min-h-[42px] px-4 py-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Edit3 size={15} />
+                      <span>Talebi Düzenle</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 bg-slate-100 px-3 py-2 rounded-xl border border-slate-200">
+                      <Lock size={13} />
+                      <span>Afiş Yayınlandı (Kilitli)</span>
+                    </div>
+                  )
+                )}
+              </div>
 
               <button
                 onClick={() => setSelectedRequest(null)}
@@ -2451,6 +2836,215 @@ export default function App() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════ EDIT REQUEST MODAL (USER - BEFORE 'yayinlandi') ════ */}
+      {requestToEdit && (
+        <div
+          onClick={() => !savingEdit && setRequestToEdit(null)}
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-t-3xl sm:rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 animate-sheet-up sm:animate-scale-in overflow-hidden"
+          >
+            {/* Mobile Drag Indicator */}
+            <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto my-2.5 sm:hidden shrink-0" />
+
+            {/* Modal Header */}
+            <div className="px-4 py-3 sm:p-6 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                  <Edit3 size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                    Afiş Talebini Düzenle
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Afiş yayınlanmadan önce etkinlik detaylarını güncelleyebilirsiniz.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={savingEdit}
+                onClick={() => setRequestToEdit(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors shrink-0"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Red Warning Banner explaining admin notification */}
+            <div className="bg-red-50 border-b border-red-200 px-4 py-3 sm:px-6 flex items-start gap-2.5 shrink-0 text-xs text-red-800">
+              <AlertTriangle size={18} className="text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="font-bold block text-red-900">🚨 Yöneticiye Kırmızı Uyarı Gönderilecek</strong>
+                Kaydettiğiniz değişiklikler anında Admin Paneline kırmızı uyarı ve bildirim olarak yansıtılacaktır.
+              </div>
+            </div>
+
+            {/* Form Body */}
+            <form onSubmit={handleSaveEdit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Etkinlik Adı <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.etkinlikAdi}
+                  onChange={e => setEditFormData({ ...editFormData, etkinlikAdi: e.target.value })}
+                  placeholder="Örn: Gençlik Buluşması"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Düzenleyen Ekip <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editFormData.ekip}
+                    onChange={e => setEditFormData({ ...editFormData, ekip: e.target.value })}
+                    placeholder="Örn: Gençlik Komisyonu"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Alt Başlık / Slogan
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.altBaslik}
+                    onChange={e => setEditFormData({ ...editFormData, altBaslik: e.target.value })}
+                    placeholder="Örn: Geleceğe Birlikte Adım Atıyoruz"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Etkinlik Tarihi <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editFormData.tarih}
+                    onChange={e => setEditFormData({ ...editFormData, tarih: e.target.value })}
+                    className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Etkinlik Saati <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={editFormData.saat}
+                    onChange={e => setEditFormData({ ...editFormData, saat: e.target.value })}
+                    className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Mekan / Adres <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.mekan}
+                  onChange={e => setEditFormData({ ...editFormData, mekan: e.target.value })}
+                  placeholder="Örn: Büyük Konferans Salonu"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Açıklama / Detaylar
+                </label>
+                <textarea
+                  rows={3}
+                  value={editFormData.aciklama}
+                  onChange={e => setEditFormData({ ...editFormData, aciklama: e.target.value })}
+                  placeholder="Etkinlik içeriği ve detaylar…"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Özel Not / Dipnot
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.ozelNot}
+                  onChange={e => setEditFormData({ ...editFormData, ozelNot: e.target.value })}
+                  placeholder="Örn: * Katılım ücretsizdir."
+                  className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
+                />
+              </div>
+
+              {/* Specific Change Note for Admin */}
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                <label className="block text-xs font-bold text-amber-900 uppercase tracking-wider mb-1">
+                  📢 Neyi Değiştirdiniz? (Yönetici Notu)
+                </label>
+                <p className="text-[11px] text-amber-700 mb-2">
+                  Yöneticinin değişikliği hızlıca fark edebilmesi için neyi güncellediğinizi kısaca belirtin.
+                </p>
+                <input
+                  type="text"
+                  value={editFormData.userChangesNote}
+                  onChange={e => setEditFormData({ ...editFormData, userChangesNote: e.target.value })}
+                  placeholder="Örn: Etkinlik tarihi ertelendi / Mekan salon 2 olarak güncellendi"
+                  className="w-full min-h-[42px] px-3 py-2 bg-white border border-amber-300 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={savingEdit}
+                  onClick={() => setRequestToEdit(null)}
+                  className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors order-2 sm:order-1"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="w-full sm:w-auto min-h-[44px] px-6 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-md shadow-red-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50 order-1 sm:order-2"
+                >
+                  {savingEdit ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" /> Kaydediliyor…
+                    </>
+                  ) : (
+                    <>
+                      <span>🚨 Değişiklikleri Kaydet &amp; Bildir</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
