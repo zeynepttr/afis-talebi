@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Afiş Talep Portalı — Giriş</title>
+  <meta name="description" content="Etkinlik afiş talebi yönetim portalı. Giriş yapın.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="login-page">
+  <div class="login-bg"></div>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="login-logo-icon">🎨</div>
+        <div class="login-logo-text">
+          <h1>Afiş Portalı</h1>
+          <span>Etkinlik Afiş Yönetim Sistemi</span>
+        </div>
+      </div>
+
+      <h2 class="login-title">Hoş Geldiniz 👋</h2>
+      <p class="login-subtitle">Hesabınıza giriş yaparak devam edin.</p>
+
+      <div id="login-error" style="display:none; background:var(--danger-bg); border:1.5px solid rgba(220,38,38,.2); border-radius:var(--radius-sm); padding:11px 14px; margin-bottom:18px; color:var(--danger); font-size:13px; font-weight:600; align-items:center; gap:8px;">
+        <span>❌</span><span id="login-error-msg">Kullanıcı adı veya şifre hatalı.</span>
+      </div>
+
+      <!-- Yükleniyor ekranı -->
+      <div id="login-loading" style="display:block; text-align:center; padding:20px 0; color:var(--text-muted); font-size:14px;">
+        <div style="font-size:28px; margin-bottom:8px; animation: spin 1s linear infinite; display:inline-block;">⏳</div>
+        <div>Oturum kontrol ediliyor…</div>
+        <button onclick="forceShowLogin()" style="margin-top:14px;background:none;border:1px solid var(--border);border-radius:8px;padding:7px 16px;color:var(--text-muted);cursor:pointer;font-size:12px;">
+          Yavaş mı? Giriş ekranını göster
+        </button>
+      </div>
+
+      <form id="login-form" autocomplete="off" style="display:none">
+        <div class="form-group">
+          <label class="form-label" for="username">Kullanıcı Adı</label>
+          <input class="form-input" type="text" id="username" placeholder="kullanıcı adınızı girin" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Şifre</label>
+          <div style="position:relative">
+            <input class="form-input" type="password" id="password" placeholder="••••••••" required autocomplete="current-password" style="padding-right:42px">
+            <button type="button" id="toggle-pass" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:17px;line-height:1;" title="Şifreyi göster/gizle">👁</button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="login-btn" style="margin-top:6px">
+          Giriş Yap &nbsp;→
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+  <script src="app.js"></script>
+  <script>
+    // Firestore yavaşlarsa veya kurulmamışsa kullanıcı sıkışmasın
+    window.forceShowLogin = function() {
+      document.getElementById('login-loading').style.display = 'none';
+      document.getElementById('login-form').style.display    = 'block';
+    };
+    // 6 saniye sonra otomatik göster
+    setTimeout(forceShowLogin, 6000);
+  </script>
+  <script type="module">
+    import { auth, db, toEmail }           from './firebase-config.js';
+    import { signInWithEmailAndPassword,
+             onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { doc, getDoc }                from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const loadingEl = document.getElementById('login-loading');
+    const formEl    = document.getElementById('login-form');
+    const errEl     = document.getElementById('login-error');
+    const errMsgEl  = document.getElementById('login-error-msg');
+
+    function withTimeout(promise, ms = 6000) {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+      ]);
+    }
+
+    function showForm(errorMsg) {
+      loadingEl.style.display = 'none';
+      formEl.style.display    = 'block';
+      if (errorMsg) {
+        errMsgEl.textContent = errorMsg;
+        errEl.style.display  = 'flex';
+      }
+    }
+
+    // Zaten giriş yapılmışsa yönlendir
+    onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) { showForm(); return; }
+
+      try {
+        const snap = await withTimeout(getDoc(doc(db, 'users', firebaseUser.uid)));
+        if (snap.exists()) {
+          const role = snap.data().role;
+          window.location.href = (role === 'admin') ? 'admin.html' : 'user.html';
+        } else {
+          await signOut(auth);
+          showForm('Kullanıcı profili bulunamadı. Lütfen yöneticinize başvurun.');
+        }
+      } catch (e) {
+        try { await signOut(auth); } catch(_) {}
+        showForm('Firestore bağlantısı kurulamadı. Firebase Console\'dan Firestore Database oluşturduğunuzu kontrol edin.');
+      }
+    });
+
+    document.getElementById('toggle-pass').addEventListener('click', () => {
+      const p = document.getElementById('password');
+      p.type = p.type === 'password' ? 'text' : 'password';
+    });
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errEl.style.display = 'none';
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const btn      = document.getElementById('login-btn');
+      if (!username || !password) return;
+
+      btn.disabled    = true;
+      btn.textContent = 'Giriş yapılıyor…';
+
+      try {
+        const email = toEmail(username);
+        const cred  = await signInWithEmailAndPassword(auth, email, password);
+
+        const snap = await withTimeout(getDoc(doc(db, 'users', cred.user.uid)));
+        if (!snap.exists()) {
+          await signOut(auth);
+          throw new Error('Kullanıcı profili Firestore\'da bulunamadı. Yöneticinize başvurun.');
+        }
+
+        const userData = snap.data();
+        showToast('Hoş geldiniz, ' + userData.name + '! 👋', 'success');
+        setTimeout(() => {
+          window.location.href = (userData.role === 'admin') ? 'admin.html' : 'user.html';
+        }, 600);
+
+      } catch (err) {
+        let msg = 'Kullanıcı adı veya şifre hatalı.';
+        if (err.message.includes('profili')) msg = err.message;
+        if (err.message.includes('Firestore')) msg = err.message;
+        if (err.code === 'auth/too-many-requests')      msg = 'Çok fazla hatalı deneme. Lütfen bekleyin.';
+        if (err.code === 'auth/network-request-failed') msg = 'Bağlantı hatası. İnterneti kontrol edin.';
+        if (err.code === 'auth/invalid-credential')     msg = 'Kullanıcı adı veya şifre hatalı.';
+        errMsgEl.textContent = msg;
+        errEl.style.display  = 'flex';
+        btn.disabled         = false;
+        btn.innerHTML        = 'Giriş Yap &nbsp;→';
+        document.getElementById('password').value = '';
+        document.getElementById('password').focus();
+      }
+    });
+  </script>
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</body>
+</html>

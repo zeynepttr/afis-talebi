@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Afiş Talebi — Kullanıcı Paneli</title>
+  <meta name="description" content="Yeni afiş talebi oluşturun, taleplerinizi takip edin.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- ══ Sidebar ══ -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">🎨</div>
+        <div class="sidebar-logo-text">
+          <h2>Afiş Portalı</h2>
+          <span>Kullanıcı Paneli</span>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Menü</div>
+      <button class="nav-item active" id="nav-requests" onclick="showView('requests')">
+        <span class="nav-icon">📋</span><span>Taleplerim</span>
+        <span class="nav-badge" id="badge-my">0</span>
+      </button>
+      <button class="nav-item" id="nav-new" onclick="showView('new')">
+        <span class="nav-icon">➕</span><span>Yeni Talep</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="sidebar-avatar">?</div>
+        <div class="user-details">
+          <div class="user-name" id="sidebar-name">Yükleniyor…</div>
+          <div class="user-role">👤 Üye</div>
+        </div>
+      </div>
+      <button class="logout-btn" id="logout-btn" onclick="window._doLogout && window._doLogout()"><span>🚪</span><span>Çıkış Yap</span></button>
+    </div>
+  </aside>
+
+  <!-- ══ Main ══ -->
+  <main class="main-content">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1 id="page-heading">Taleplerim</h1>
+        <p id="page-sub">Afiş taleplerinizi ve durumlarını takip edin</p>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-primary btn-sm" id="new-btn-top" onclick="showView('new')" style="width:auto">
+          ➕ Yeni Talep
+        </button>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- ─── VIEW: Taleplerim ─── -->
+      <div id="view-requests" class="page-view active">
+        <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:22px">
+          <div class="stat-card design">
+            <div class="stat-icon">🎨</div>
+            <div class="stat-info"><div class="stat-value" id="my-s1">0</div><div class="stat-label">Tasarımda</div></div>
+          </div>
+          <div class="stat-card approval">
+            <div class="stat-icon">🔍</div>
+            <div class="stat-info"><div class="stat-value" id="my-s2">0</div><div class="stat-label">Merkez Onayında</div></div>
+          </div>
+          <div class="stat-card published">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info"><div class="stat-value" id="my-s3">0</div><div class="stat-label">Yayınlandı</div></div>
+          </div>
+        </div>
+
+        <div id="my-requests-list"></div>
+        <div id="my-empty" class="empty-state" style="display:none">
+          <div class="empty-icon">📭</div>
+          <div class="empty-title">Henüz Talebiniz Yok</div>
+          <div class="empty-desc">İlk afiş talebinizi oluşturmak için aşağıya tıklayın.</div>
+          <button class="btn btn-primary" style="margin-top:18px;width:auto;padding:11px 26px" onclick="showView('new')">➕ İlk Talebi Oluştur</button>
+        </div>
+
+        <!-- Yükleniyor -->
+        <div id="my-loading" style="text-align:center;padding:40px;color:var(--text-muted);font-size:14px">
+          <div style="font-size:32px;margin-bottom:8px">⏳</div>
+          <div>Talepler yükleniyor…</div>
+        </div>
+      </div>
+
+      <!-- ─── VIEW: Yeni Talep ─── -->
+      <div id="view-new" class="page-view">
+        <div class="form-card">
+
+          <!-- Banner -->
+          <div class="form-banner">
+            <h2>🎨 Yeni Afiş Talebi</h2>
+            <p>Aşağıdaki formu doldurarak afiş talebinizi iletin. Sağdaki ön izleme ile afişi anlık takip edin.</p>
+          </div>
+
+          <div class="form-inner">
+            <form id="req-form" autocomplete="off">
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+
+                <!-- ── SOL KOLON: Form ── -->
+                <div>
+
+                  <!-- BÖLÜM 1: Etkinlik Bilgileri -->
+                  <div class="form-section">
+                    <div class="form-section-header">
+                      <div class="section-icon">🎪</div>
+                      <div>
+                        <div class="section-label">Etkinlik Bilgileri</div>
+                        <div class="section-desc">Temel etkinlik detayları</div>
+                      </div>
+                    </div>
+                    <div class="form-section-body">
+                      <div class="form-group">
+                        <label class="form-label" for="etkinlikAdi">Etkinlik Adı <span class="required-star">*</span></label>
+                        <input class="form-input" type="text" id="etkinlikAdi"
+                          placeholder="örn: 🚀 ATOM Tanışma Toplantısı"
+                          required maxlength="120" oninput="updatePreview()">
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label" for="ekip">Ekip <span class="required-star">*</span></label>
+                        <input class="form-input" type="text" id="ekip"
+                          placeholder="örn: ATOM Ekibi / Sosyal Etkinlik Ekibi"
+                          required maxlength="100" oninput="updatePreview()">
+                        <p class="form-hint">Organizasyonu yapan ekip veya birim.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- BÖLÜM 2: Alt Başlık & Açıklama -->
+                  <div class="form-section">
+                    <div class="form-section-header">
+                      <div class="section-icon">✍️</div>
+                      <div>
+                        <div class="section-label">Alt Başlık &amp; Açıklama</div>
+                        <div class="section-desc">Afişin ana mesajı</div>
+                      </div>
+                    </div>
+                    <div class="form-section-body">
+                      <div class="form-group">
+                        <label class="form-label" for="altBaslik">Alt Başlık / Slogan</label>
+                        <input class="form-input" type="text" id="altBaslik"
+                          placeholder="örn: Hayalperest olmayıp hayal kuran gençlerin buluşması!"
+                          maxlength="160" oninput="updatePreview()">
+                        <p class="form-hint">Afişin hemen altına gelecek etkileyici bir cümle.</p>
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label" for="aciklama">Etkinlik Açıklaması</label>
+                        <textarea class="form-textarea" id="aciklama" rows="4" maxlength="600"
+                          placeholder="Etkinlik hakkında kısa bir tanıtım metni…"
+                          oninput="updatePreview();updateCharCount('aciklama','cc-aciklama',600)"></textarea>
+                        <div class="char-count"><span id="cc-aciklama">0</span>/600</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- BÖLÜM 3: Tarih, Saat, Mekan -->
+                  <div class="form-section">
+                    <div class="form-section-header">
+                      <div class="section-icon">📅</div>
+                      <div>
+                        <div class="section-label">Tarih, Saat &amp; Yer</div>
+                        <div class="section-desc">Etkinlik lojistik bilgileri</div>
+                      </div>
+                    </div>
+                    <div class="form-section-body">
+                      <div class="form-grid">
+                        <div class="form-group">
+                          <label class="form-label" for="tarih">Tarih <span class="required-star">*</span></label>
+                          <input class="form-input" type="date" id="tarih" required oninput="updatePreview()">
+                        </div>
+                        <div class="form-group">
+                          <label class="form-label" for="saat">Saat <span class="required-star">*</span></label>
+                          <input class="form-input" type="time" id="saat" required oninput="updatePreview()">
+                        </div>
+                        <div class="form-group full">
+                          <label class="form-label" for="mekan">Yer / Mekan <span class="required-star">*</span></label>
+                          <input class="form-input" type="text" id="mekan"
+                            placeholder="örn: Genç Ofis  /  Üniversite Metrosu"
+                            required oninput="updatePreview()">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- BÖLÜM 4: Özel Not -->
+                  <div class="form-section">
+                    <div class="form-section-header">
+                      <div class="section-icon">📝</div>
+                      <div>
+                        <div class="section-label">Özel Not / Uyarı</div>
+                        <div class="section-desc">Afişin altına küçük not eklenecek</div>
+                      </div>
+                    </div>
+                    <div class="form-section-body">
+                      <div class="form-group" style="margin-bottom:0">
+                        <textarea class="form-textarea" id="ozelNot" rows="2" maxlength="200"
+                          placeholder="örn: * Programımız hanımlara özeldir.  /  * Fiyat bilgisi afişte olmayacak."
+                          oninput="updatePreview();updateCharCount('ozelNot','cc-not',200)"></textarea>
+                        <div class="char-count"><span id="cc-not">0</span>/200</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
+                    <button type="button" class="btn btn-ghost" onclick="showView('requests')">İptal</button>
+                    <button type="button" class="btn btn-primary" id="submit-btn" style="width:auto;padding:11px 28px"
+                      onclick="submitRequest()">
+                      📤 Talebi Gönder
+                    </button>
+                  </div>
+
+                </div>
+
+                <!-- ── SAĞ KOLON: Ön İzleme ── -->
+                <div style="position:sticky;top:90px;align-self:flex-start">
+                  <div class="preview-card">
+                    <div class="preview-card-title">
+                      <span style="font-size:16px">👁</span> Afiş Ön İzleme
+                    </div>
+                    <div class="preview-poster" id="preview-poster">
+                      <div style="color:var(--text-muted);font-size:13px;text-align:center;padding:24px 0">
+                        Formu doldurmaya başlayın…
+                      </div>
+                    </div>
+                    <p style="font-size:11px;color:var(--text-muted);margin-top:10px;text-align:center">
+                      Bu ön izleme yaklaşık bir gösterimdir.
+                    </p>
+                  </div>
+                </div>
+
+              </div><!-- /grid -->
+            </form>
+          </div><!-- /form-inner -->
+        </div><!-- /form-card -->
+      </div><!-- /view-new -->
+
+    </div><!-- /page-content -->
+  </main>
+</div><!-- /app-layout -->
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="detail-modal" onclick="closeModalOnOverlay(event)">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">Talep Detayı</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px" id="modal-subtitle"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="app.js"></script>
+<script>
+  window._doLogout = function() {
+    try { localStorage.clear(); sessionStorage.clear(); } catch(e) {}
+    if (window._firebaseSignOut) {
+      window._firebaseSignOut().finally(function() { window.location.href = '/'; });
+    } else {
+      window.location.href = '/';
+    }
+  };
+  setTimeout(function() {
+    var loadingEl = document.getElementById('my-loading');
+    if (loadingEl && loadingEl.style.display !== 'none') {
+      loadingEl.innerHTML = 
+        '<div style="text-align:center;padding:24px;color:var(--text-muted)">' +
+        '<div style="font-size:28px;margin-bottom:8px">⚠️</div>' +
+        '<div style="margin-bottom:12px;font-weight:600">Bağlantı yavaş veya oturum bekleniyor...</div>' +
+        '<button onclick="window._doLogout()" style="background:var(--accent);color:#fff;border:none;padding:9px 20px;border-radius:8px;cursor:pointer;font-weight:600">🚪 Oturumu Kapat / Girişe Dön</button>' +
+        '</div>';
+    }
+  }, 4500);
+</script>
+<script type="module">
+  import { auth, db }                       from './firebase-config.js';
+  import { onAuthStateChanged, signOut }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { collection, addDoc, query,
+           where, orderBy, onSnapshot,
+           serverTimestamp, doc, getDoc }   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  /* ── State ── */
+  let currentUser   = null;
+  let myRequests    = [];
+  let unsubscribe   = null;
+
+  window._firebaseSignOut = function() {
+    if (unsubscribe) { try { unsubscribe(); } catch(e){} }
+    return signOut(auth);
+  };
+
+  function withTimeout(promise, ms = 5000) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+    ]);
+  }
+
+  /* ── Auth Guard ── */
+  onAuthStateChanged(auth, async (firebaseUser) => {
+    if (!firebaseUser) { window.location.href = '/'; return; }
+
+    try {
+      const snap = await withTimeout(getDoc(doc(db, 'users', firebaseUser.uid)));
+      if (!snap.exists()) {
+        document.getElementById('sidebar-name').textContent = 'Profil Yok';
+        document.getElementById('my-loading').innerHTML =
+          '<div style="text-align:center;padding:30px;color:var(--danger)">' +
+          '<div style="font-size:24px;margin-bottom:8px">⚠️</div>' +
+          '<div style="margin-bottom:12px;font-weight:600">Kullanıcı profili veritabanında bulunamadı.</div>' +
+          '<button onclick="window._doLogout()" style="background:var(--danger);color:#fff;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-weight:600">🚪 Çıkış Yap</button>' +
+          '</div>';
+        return;
+      }
+
+      const data = snap.data();
+      if (data.role === 'admin') { window.location.href = 'admin.html'; return; }
+
+      currentUser = { uid: firebaseUser.uid, ...data };
+      document.getElementById('sidebar-name').textContent   = currentUser.name;
+      document.getElementById('sidebar-avatar').textContent = makeAvatar(currentUser.name);
+      document.getElementById('tarih').min = new Date().toISOString().split('T')[0];
+
+      listenMyRequests();
+    } catch(err) {
+      document.getElementById('sidebar-name').textContent = 'Bağlantı Hatası';
+      document.getElementById('my-loading').innerHTML =
+        '<div style="text-align:center;padding:30px;color:var(--text-muted)">' +
+        '<div style="font-size:24px;margin-bottom:8px">⚠️</div>' +
+        '<div style="margin-bottom:12px;font-weight:600">Veritabanına bağlanılamadı.</div>' +
+        '<button onclick="window._doLogout()" style="background:var(--accent);color:#fff;border:none;padding:9px 20px;border-radius:8px;cursor:pointer;font-weight:600">🚪 Çıkış Yap</button>' +
+        '</div>';
+    }
+  });
+
+  /* ── Real-time listener ── */
+  function listenMyRequests() {
+    if (unsubscribe) unsubscribe();
+    const q = query(
+      collection(db, 'requests'),
+      where('createdBy.uid', '==', currentUser.uid),
+      orderBy('createdAt', 'desc')
+    );
+    unsubscribe = onSnapshot(q, (snap) => {
+      myRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderMyRequests();
+    }, (err) => {
+      // index henüz oluşmamışsa sadece sıralamasız çek
+      console.warn('Index yok, fallback:', err.message);
+      const q2 = query(collection(db, 'requests'), where('createdBy.uid', '==', currentUser.uid));
+      unsubscribe = onSnapshot(q2, (snap) => {
+        myRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        myRequests.sort((a, b) => {
+          const ta = a.createdAt?.toMillis?.() || 0;
+          const tb = b.createdAt?.toMillis?.() || 0;
+          return tb - ta;
+        });
+        renderMyRequests();
+      });
+    });
+  }
+
+  /* ── View Switch ── */
+  window.showView = function(view) {
+    ['requests', 'new'].forEach(v => {
+      document.getElementById('view-' + v).classList.remove('active');
+      document.getElementById('nav-' + v)?.classList.remove('active');
+    });
+    document.getElementById('view-' + view).classList.add('active');
+    document.getElementById('nav-' + view)?.classList.add('active');
+
+    const topBtn = document.getElementById('new-btn-top');
+    if (topBtn) topBtn.style.display = (view === 'new') ? 'none' : '';
+
+    const map = {
+      requests: ['Taleplerim', 'Afiş taleplerinizi ve durumlarını takip edin'],
+      new:      ['Yeni Afiş Talebi', 'Formu doldurun, talebiniz iletilecektir'],
+    };
+    const [h, s] = map[view] || ['', ''];
+    document.getElementById('page-heading').textContent = h;
+    document.getElementById('page-sub').textContent     = s;
+  };
+
+  /* ── Render Talepler ── */
+  function renderMyRequests() {
+    const loading   = document.getElementById('my-loading');
+    const container = document.getElementById('my-requests-list');
+    const empty     = document.getElementById('my-empty');
+
+    loading.style.display = 'none';
+    document.getElementById('badge-my').textContent = myRequests.length;
+    document.getElementById('my-s1').textContent    = myRequests.filter(r => r.status === 'tasarimda').length;
+    document.getElementById('my-s2').textContent    = myRequests.filter(r => r.status === 'merkez-onayinda').length;
+    document.getElementById('my-s3').textContent    = myRequests.filter(r => r.status === 'yayinlandi').length;
+
+    if (!myRequests.length) {
+      container.innerHTML   = '';
+      empty.style.display   = 'flex';
+      return;
+    }
+    empty.style.display = 'none';
+    container.innerHTML = myRequests.map(renderUserCard).join('');
+  }
+
+  function renderUserCard(r) {
+    const stepMap = { 'tasarimda': 1, 'merkez-onayinda': 2, 'yayinlandi': 3 };
+    const step    = stepMap[r.status] || 1;
+    const tarihStr = r.tarih ? formatDate(r.tarih) : '—';
+    const saatStr  = r.saat  ? r.saat              : '';
+    return `
+      <div class="user-request-card" data-status="${r.status}" onclick="openDetailModal('${r.id}')">
+        <div class="user-request-header">
+          <div>
+            <div class="user-request-title">${escHtml(r.etkinlikAdi)}</div>
+            <div class="user-request-date">📅 ${tarihStr}${saatStr ? ' · ' + saatStr : ''}</div>
+          </div>
+          ${statusBadgeHTML(r.status)}
+        </div>
+        <div class="user-request-details">
+          <span class="meta-item"><span class="meta-icon">🏷️</span>${escHtml(r.ekip || '—')}</span>
+          <span class="meta-item"><span class="meta-icon">📍</span>${escHtml(r.mekan || '—')}</span>
+          <span class="meta-item"><span class="meta-icon">🕐</span>${formatRelative(r.createdAt)}</span>
+        </div>
+        <div class="progress-stepper">
+          <div class="step ${step >= 1 ? (step > 1 ? 'done' : 'active') : ''}">
+            <div class="step-dot">${step > 1 ? '✓' : '1'}</div>
+            <span class="step-label">Tasarımda</span>
+            <div class="step-line"></div>
+          </div>
+          <div class="step ${step >= 2 ? (step > 2 ? 'done' : 'active') : ''}">
+            <div class="step-dot">${step > 2 ? '✓' : '2'}</div>
+            <span class="step-label">Merkez Onayı</span>
+            <div class="step-line"></div>
+          </div>
+          <div class="step ${step >= 3 ? 'active' : ''}">
+            <div class="step-dot">${step >= 3 ? '✓' : '3'}</div>
+            <span class="step-label">Yayınlandı</span>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  /* ── Submit ── */
+  window.submitRequest = async function() {
+    if (!currentUser) return;
+
+    // Basit validation
+    const etkinlikAdi = fv('etkinlikAdi');
+    const ekip        = fv('ekip');
+    const tarih       = fv('tarih');
+    const saat        = fv('saat');
+    const mekan       = fv('mekan');
+
+    if (!etkinlikAdi) { alert('Etkinlik adı zorunludur.'); return; }
+    if (!ekip)        { alert('Ekip zorunludur.'); return; }
+    if (!tarih)       { alert('Tarih zorunludur.'); return; }
+    if (!saat)        { alert('Saat zorunludur.'); return; }
+    if (!mekan)       { alert('Mekan zorunludur.'); return; }
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled    = true;
+    btn.textContent = 'Gönderiliyor…';
+
+    try {
+      await addDoc(collection(db, 'requests'), {
+        etkinlikAdi,
+        ekip,
+        altBaslik:  fv('altBaslik'),
+        aciklama:   fv('aciklama'),
+        tarih,
+        saat,
+        mekan,
+        ozelNot:    fv('ozelNot'),
+        status:     'tasarimda',
+        createdBy:  { uid: currentUser.uid, name: currentUser.name },
+        createdAt:  serverTimestamp(),
+        updatedAt:  serverTimestamp(),
+      });
+
+      showToast('Afiş talebiniz başarıyla iletildi! 🎉', 'success');
+
+      // Reset
+      document.getElementById('req-form').reset();
+      updatePreview();
+      ['cc-aciklama', 'cc-not'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '0';
+      });
+
+      setTimeout(() => showView('requests'), 700);
+
+    } catch (err) {
+      console.error(err);
+      showToast('Bir hata oluştu: ' + err.message, 'error');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = '📤 Talebi Gönder';
+    }
+  };
+
+  /* ── Detail Modal ── */
+  window.openDetailModal = function(id) {
+    const req = myRequests.find(r => r.id === id);
+    if (!req) return;
+
+    document.getElementById('modal-title').textContent    = req.etkinlikAdi;
+    document.getElementById('modal-subtitle').textContent =
+      `Talep tarihi: ${formatDateTime(req.createdAt)}`;
+
+    const tarihStr = req.tarih ? formatDate(req.tarih) : '—';
+
+    document.getElementById('modal-body').innerHTML = `
+      <div style="margin-bottom:16px">${statusBadgeHTML(req.status)}</div>
+      <div class="preview-poster" style="margin-bottom:16px">
+        ${req.etkinlikAdi ? `<div class="preview-event-name">${escHtml(req.etkinlikAdi)}</div>` : ''}
+        ${req.altBaslik   ? `<div class="preview-tagline">${escHtml(req.altBaslik)}</div>`       : ''}
+        ${req.aciklama    ? `<div class="preview-desc">${escHtml(req.aciklama)}</div>`           : ''}
+        <div class="preview-meta">
+          ${req.tarih ? `<div class="preview-meta-row">📅 <span>${tarihStr}</span></div>`    : ''}
+          ${req.saat  ? `<div class="preview-meta-row">🕒 <span>${req.saat}</span></div>`   : ''}
+          ${req.mekan ? `<div class="preview-meta-row">📍 <span>${escHtml(req.mekan)}</span></div>` : ''}
+        </div>
+        ${req.ozelNot ? `<div class="preview-note">${escHtml(req.ozelNot)}</div>` : ''}
+      </div>
+      <div class="detail-grid">
+        <div class="detail-item"><div class="detail-item-label">Ekip</div><div class="detail-item-value">${escHtml(req.ekip || '—')}</div></div>
+        <div class="detail-item"><div class="detail-item-label">Talep Eden</div><div class="detail-item-value">${escHtml(req.createdBy?.name || '—')}</div></div>
+        <div class="detail-item"><div class="detail-item-label">Talep Tarihi</div><div class="detail-item-value">${formatDateTime(req.createdAt)}</div></div>
+        <div class="detail-item"><div class="detail-item-label">Son Güncelleme</div><div class="detail-item-value">${formatDateTime(req.updatedAt)}</div></div>
+      </div>
+    `;
+
+    document.getElementById('detail-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.closeModal = function() {
+    document.getElementById('detail-modal').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+  window.closeModalOnOverlay = function(e) {
+    if (e.target === document.getElementById('detail-modal')) closeModal();
+  };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  /* ── Live Preview ── */
+  window.updatePreview = function() {
+    const ad  = fv('etkinlikAdi');
+    const sl  = fv('altBaslik');
+    const ac  = fv('aciklama');
+    const tar = fv('tarih');
+    const sa  = fv('saat');
+    const me  = fv('mekan');
+    const not = fv('ozelNot');
+
+    const preview = document.getElementById('preview-poster');
+    if (!ad && !sl && !tar) {
+      preview.innerHTML = `<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:24px 0">Formu doldurmaya başlayın…</div>`;
+      return;
+    }
+    const tarStr = tar ? new Date(tar + 'T00:00').toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+    preview.innerHTML = `
+      ${ad  ? `<div class="preview-event-name">${escHtml(ad)}</div>`   : ''}
+      ${sl  ? `<div class="preview-tagline">${escHtml(sl)}</div>`       : ''}
+      ${ac  ? `<div class="preview-desc">${escHtml(ac)}</div>`          : ''}
+      ${(tar || sa || me) ? `
+        <div class="preview-meta">
+          ${tar ? `<div class="preview-meta-row">📅 <span>${tarStr}</span></div>` : ''}
+          ${sa  ? `<div class="preview-meta-row">🕒 <span>${sa}</span></div>`     : ''}
+          ${me  ? `<div class="preview-meta-row">📍 <span>${escHtml(me)}</span></div>` : ''}
+        </div>` : ''}
+      ${not ? `<div class="preview-note">${escHtml(not)}</div>` : ''}
+    `;
+  };
+
+  /* ── Char Count ── */
+  window.updateCharCount = function(fieldId, countId, max) {
+    const el = document.getElementById(countId);
+    if (el) el.textContent = document.getElementById(fieldId)?.value.length || 0;
+  };
+
+  function fv(id) { return (document.getElementById(id)?.value || '').trim(); }
+</script>
+</body>
+</html>

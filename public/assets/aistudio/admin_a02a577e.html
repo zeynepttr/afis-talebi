@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Paneli — Afiş Talep Portalı</title>
+  <meta name="description" content="Tüm afiş taleplerini yönetin, durum güncelleyin, kullanıcı ekleyin.">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* ── Kullanıcı Yönetimi Ek Stiller ── */
+    .user-mgmt-grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 24px;
+      align-items: flex-start;
+    }
+    .user-add-card {
+      background: var(--card-bg);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .user-add-card h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0 0 18px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .users-table-card {
+      background: var(--card-bg);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .users-table-card h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .users-table th {
+      text-align: left;
+      padding: 10px 22px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      background: var(--sidebar-bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .users-table td {
+      padding: 12px 22px;
+      font-size: 13px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .users-table tr:last-child td { border-bottom: none; }
+    .users-table tr:hover td { background: rgba(109,40,217,.03); }
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .role-badge.admin { background: rgba(109,40,217,.1); color: var(--accent); }
+    .role-badge.user  { background: rgba(16,185,129,.08); color: #059669; }
+    .user-row-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .delete-user-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 15px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      transition: all .2s;
+    }
+    .delete-user-btn:hover { background: var(--danger-bg); color: var(--danger); }
+    .add-user-error {
+      display: none;
+      background: var(--danger-bg);
+      border: 1.5px solid rgba(220,38,38,.2);
+      border-radius: var(--radius-sm);
+      padding: 10px 13px;
+      color: var(--danger);
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 14px;
+      align-items: center;
+      gap: 7px;
+    }
+    .add-user-success {
+      display: none;
+      background: rgba(16,185,129,.08);
+      border: 1.5px solid rgba(16,185,129,.2);
+      border-radius: var(--radius-sm);
+      padding: 10px 13px;
+      color: #059669;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 14px;
+      align-items: center;
+      gap: 7px;
+    }
+    @media (max-width: 900px) {
+      .user-mgmt-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- ══ Sidebar ══ -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">🎨</div>
+        <div class="sidebar-logo-text">
+          <h2>Afiş Portalı</h2>
+          <span>Admin Paneli</span>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Yönetim</div>
+      <button class="nav-item active" id="nav-all" onclick="showView('all')">
+        <span class="nav-icon">📋</span><span>Tüm Talepler</span>
+        <span class="nav-badge" id="badge-all">0</span>
+      </button>
+      <button class="nav-item" id="nav-tasarimda" onclick="showView('tasarimda')">
+        <span class="nav-icon">🎨</span><span>Tasarımda</span>
+        <span class="nav-badge" id="badge-tasarimda" style="background:var(--status-design)">0</span>
+      </button>
+      <button class="nav-item" id="nav-merkez-onayinda" onclick="showView('merkez-onayinda')">
+        <span class="nav-icon">🔍</span><span>Merkez Onayında</span>
+        <span class="nav-badge" id="badge-merkez" style="background:var(--status-approval)">0</span>
+      </button>
+      <button class="nav-item" id="nav-yayinlandi" onclick="showView('yayinlandi')">
+        <span class="nav-icon">✅</span><span>Yayınlandı</span>
+        <span class="nav-badge" id="badge-yayinlandi" style="background:var(--status-published)">0</span>
+      </button>
+
+      <div class="nav-section-label" style="margin-top:8px">Ayarlar</div>
+      <button class="nav-item" id="nav-users" onclick="showView('users')">
+        <span class="nav-icon">👥</span><span>Kullanıcılar</span>
+        <span class="nav-badge" id="badge-users" style="background:var(--accent)">0</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="sidebar-avatar">?</div>
+        <div class="user-details">
+          <div class="user-name" id="sidebar-name">Yükleniyor…</div>
+          <div class="user-role">👑 Yönetici</div>
+        </div>
+      </div>
+      <button class="logout-btn" onclick="window._doLogout && window._doLogout()"><span>🚪</span><span>Çıkış Yap</span></button>
+    </div>
+  </aside>
+
+  <!-- ══ Main ══ -->
+  <main class="main-content">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1 id="page-heading">Tüm Afiş Talepleri</h1>
+        <p id="page-sub">Tüm talepleri görüntülüyor ve yönetiyorsunuz</p>
+      </div>
+      <div class="topbar-actions">
+        <div style="font-size:13px;color:var(--text-muted);font-weight:600">
+          🕐 <span id="current-time"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- ═══════ VIEW: Talepler ═══════ -->
+      <div id="view-requests-panel" class="page-view active">
+        <!-- Stats -->
+        <div class="stats-grid">
+          <div class="stat-card total">
+            <div class="stat-icon" style="background:rgba(109,40,217,.08)">📊</div>
+            <div class="stat-info"><div class="stat-value" id="stat-total">0</div><div class="stat-label">Toplam Talep</div></div>
+          </div>
+          <div class="stat-card design">
+            <div class="stat-icon" style="background:var(--status-design-bg)">🎨</div>
+            <div class="stat-info"><div class="stat-value" id="stat-design">0</div><div class="stat-label">Tasarımda</div></div>
+          </div>
+          <div class="stat-card approval">
+            <div class="stat-icon" style="background:var(--status-approval-bg)">🔍</div>
+            <div class="stat-info"><div class="stat-value" id="stat-approval">0</div><div class="stat-label">Merkez Onayında</div></div>
+          </div>
+          <div class="stat-card published">
+            <div class="stat-icon" style="background:var(--status-published-bg)">✅</div>
+            <div class="stat-info"><div class="stat-value" id="stat-published">0</div><div class="stat-label">Yayınlandı</div></div>
+          </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+          <span class="filter-label">📅 Sırala:</span>
+          <div class="filter-group">
+            <button class="filter-btn active" id="sort-btn-created" onclick="setSort('created')">Talep Tarihine Göre</button>
+            <button class="filter-btn" id="sort-btn-event" onclick="setSort('event')">Etkinlik Tarihine Göre</button>
+          </div>
+          <div class="search-input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input class="form-input" type="text" id="search-input" placeholder="Etkinlik veya kişi ara…" oninput="renderRequests()">
+          </div>
+          <div class="sort-group">
+            <label style="font-size:13px;color:var(--text-muted);white-space:nowrap;font-weight:600">Sıra:</label>
+            <select class="form-select" id="order-select" onchange="renderRequests()">
+              <option value="desc">En Yeni Önce</option>
+              <option value="asc">En Eski Önce</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- List -->
+        <div id="req-loading" style="text-align:center;padding:40px;color:var(--text-muted)">
+          <div style="font-size:32px;margin-bottom:8px">⏳</div>
+          <div>Talepler yükleniyor…</div>
+        </div>
+        <div class="requests-grid" id="requests-list"></div>
+        <div id="empty-state" class="empty-state" style="display:none">
+          <div class="empty-icon">📭</div>
+          <div class="empty-title">Talep Bulunamadı</div>
+          <div class="empty-desc">Seçilen filtreye göre gösterilecek afiş talebi yok.</div>
+        </div>
+      </div>
+
+      <!-- ═══════ VIEW: Kullanıcılar ═══════ -->
+      <div id="view-users-panel" class="page-view">
+        <div class="user-mgmt-grid">
+
+          <!-- Sol: Kullanıcı Ekleme Formu -->
+          <div class="user-add-card">
+            <h3>➕ Yeni Kullanıcı Ekle</h3>
+
+            <div id="add-user-error" class="add-user-error">
+              <span>❌</span><span id="add-user-error-msg">Bir hata oluştu.</span>
+            </div>
+            <div id="add-user-success" class="add-user-success">
+              <span>✅</span><span id="add-user-success-msg">Kullanıcı başarıyla eklendi!</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="new-fullname">Ad Soyad <span class="required-star">*</span></label>
+              <input class="form-input" type="text" id="new-fullname" placeholder="örn: Ahmet Demir" maxlength="60">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="new-username">Kullanıcı Adı <span class="required-star">*</span></label>
+              <input class="form-input" type="text" id="new-username"
+                placeholder="örn: ahmet (boşluksuz, küçük harf)"
+                maxlength="30" style="text-transform:lowercase"
+                oninput="this.value=this.value.replace(/\s/g,'').toLowerCase()">
+              <p class="form-hint">Giriş yaparken bu ad kullanılacak.</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="new-password">Şifre <span class="required-star">*</span></label>
+              <input class="form-input" type="password" id="new-password" placeholder="En az 6 karakter" minlength="6">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="new-role">Rol <span class="required-star">*</span></label>
+              <select class="form-select" id="new-role">
+                <option value="user">👤 Kullanıcı</option>
+                <option value="admin">👑 Admin</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" id="add-user-btn" onclick="addUser()" style="margin-top:4px">
+              ➕ Kullanıcı Ekle
+            </button>
+          </div>
+
+          <!-- Sağ: Kullanıcı Listesi -->
+          <div class="users-table-card">
+            <h3>👥 Mevcut Kullanıcılar</h3>
+            <div id="users-loading" style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">
+              <div style="font-size:24px;margin-bottom:6px">⏳</div>
+              <div>Yükleniyor…</div>
+            </div>
+            <table class="users-table" id="users-table" style="display:none">
+              <thead>
+                <tr>
+                  <th style="width:40px"></th>
+                  <th>Ad Soyad</th>
+                  <th>Kullanıcı Adı</th>
+                  <th>Rol</th>
+                  <th>Kayıt Tarihi</th>
+                </tr>
+              </thead>
+              <tbody id="users-tbody"></tbody>
+            </table>
+            <div id="users-empty" style="display:none;padding:30px;text-align:center;color:var(--text-muted);font-size:13px">
+              Henüz kullanıcı yok.
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="detail-modal" onclick="closeModalOnOverlay(event)">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">Talep Detayı</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px" id="modal-subtitle"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Kapat</button>
+      <button class="btn btn-primary btn-sm" style="width:auto;padding:7px 20px" id="save-status-btn" onclick="saveStatus()">
+        💾 Durumu Kaydet
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="app.js"></script>
+<script type="module">
+  import { auth, db, secondaryAuth, toEmail } from './firebase-config.js';
+  import { onAuthStateChanged, signOut,
+           createUserWithEmailAndPassword,
+           signOut as secondarySignOut }       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { collection, doc, getDoc, getDocs,
+           onSnapshot, orderBy, query,
+           serverTimestamp, updateDoc,
+           setDoc }                            from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  /* ══ State ══ */
+  let currentAdmin     = null;
+  let allRequests      = [];
+  let allUsers         = [];
+  let currentView      = 'all';
+  let currentSort      = 'created';
+  let selectedReqId    = null;
+  let selectedStatus   = null;
+  let unsubRequests    = null;
+  let unsubUsers       = null;
+
+  /* ══ Timeout Helper ══ */
+  function withTimeout(promise, ms = 8000) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+    ]);
+  }
+
+  /* ══ Global Logout — onclick'ten çağrılır, module beklenmez ══ */
+  window._doLogout = async function() {
+    try { if (unsubRequests) unsubRequests(); } catch(_) {}
+    try { if (unsubUsers)    unsubUsers();    } catch(_) {}
+    try { await signOut(auth); } catch(_) {}
+    window.location.href = 'index.html';
+  };
+
+  /* ══ Auth Guard ══ */
+  onAuthStateChanged(auth, async (firebaseUser) => {
+    if (!firebaseUser) { window.location.href = 'index.html'; return; }
+
+    try {
+      const snap = await withTimeout(getDoc(doc(db, 'users', firebaseUser.uid)));
+      if (!snap.exists() || snap.data().role !== 'admin') {
+        window.location.href = 'index.html'; return;
+      }
+      currentAdmin = { uid: firebaseUser.uid, ...snap.data() };
+      document.getElementById('sidebar-name').textContent   = currentAdmin.name;
+      document.getElementById('sidebar-avatar').textContent = makeAvatar(currentAdmin.name);
+      updateClock();
+      setInterval(updateClock, 60000);
+      listenRequests();
+      listenUsers();
+    } catch(err) {
+      // Firestore erişilemiyor — hata mesajı göster, çıkış yapılabilsin
+      document.getElementById('sidebar-name').textContent = '⚠️ Bağlantı Hatası';
+      document.getElementById('req-loading').innerHTML =
+        '<div style="text-align:center;padding:40px;color:var(--danger)">' +
+        '<div style="font-size:32px;margin-bottom:12px">⚠️</div>' +
+        '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Firestore Bağlantısı Kurulamadı</div>' +
+        '<div style="font-size:13px;color:var(--text-muted);margin-bottom:20px">Firebase Console → Firestore Database oluşturduğunuzu kontrol edin.</div>' +
+        '<button onclick="window._doLogout()" style="background:var(--danger);color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">🚪 Çıkış Yap</button>' +
+        '</div>';
+    }
+  });
+
+  function updateClock() {
+    document.getElementById('current-time').textContent =
+      new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  /* ══ Real-time Listeners ══ */
+  function listenRequests() {
+    const q = query(collection(db, 'requests'), orderBy('createdAt', 'desc'));
+    unsubRequests = onSnapshot(q, (snap) => {
+      document.getElementById('req-loading').style.display = 'none';
+      allRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      updateStats();
+      renderRequests();
+    }, (err) => {
+      // Fallback without orderBy if index missing
+      console.warn('Fallback:', err.message);
+      const q2 = query(collection(db, 'requests'));
+      unsubRequests = onSnapshot(q2, (snap) => {
+        document.getElementById('req-loading').style.display = 'none';
+        allRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        allRequests.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+        updateStats();
+        renderRequests();
+      });
+    });
+  }
+
+  function listenUsers() {
+    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+    unsubUsers = onSnapshot(q, (snap) => {
+      allUsers = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+      document.getElementById('badge-users').textContent = allUsers.length;
+      renderUsers();
+    }, () => {
+      // Fallback
+      getDocs(collection(db, 'users')).then(snap => {
+        allUsers = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+        document.getElementById('badge-users').textContent = allUsers.length;
+        renderUsers();
+      });
+    });
+  }
+
+  /* ══ View Switch ══ */
+  window.showView = function(view) {
+    const isUserView = (view === 'users');
+
+    // Sidebar aktif
+    ['all', 'tasarimda', 'merkez-onayinda', 'yayinlandi', 'users'].forEach(v => {
+      document.getElementById('nav-' + (v === 'merkez-onayinda' ? 'merkez-onayinda' : v))?.classList.remove('active');
+    });
+    document.getElementById('nav-' + view)?.classList.add('active');
+
+    // Panel göster/gizle
+    document.getElementById('view-requests-panel').classList.toggle('active', !isUserView);
+    document.getElementById('view-users-panel').classList.toggle('active', isUserView);
+
+    // Heading
+    const headingMap = {
+      all:               ['Tüm Afiş Talepleri',  'Tüm talepleri görüntülüyor ve yönetiyorsunuz'],
+      'tasarimda':       ['🎨 Tasarımda',          'Tasarım aşamasındaki talepler'],
+      'merkez-onayinda': ['🔍 Merkez Onayında',    'Merkez onayı bekleyen talepler'],
+      'yayinlandi':      ['✅ Yayınlandı',          'Yayınlanmış talepler'],
+      users:             ['👥 Kullanıcı Yönetimi', 'Kullanıcı ekleyin ve yönetin'],
+    };
+    const [h, s] = headingMap[view] || ['Talepler', ''];
+    document.getElementById('page-heading').textContent = h;
+    document.getElementById('page-sub').textContent     = s;
+
+    if (!isUserView) {
+      currentView = view;
+      renderRequests();
+    }
+  };
+
+  /* ══ Sort ══ */
+  window.setSort = function(sort) {
+    currentSort = sort;
+    ['created', 'event'].forEach(s =>
+      document.getElementById('sort-btn-' + s)?.classList.toggle('active', s === sort));
+    renderRequests();
+  };
+
+  /* ══ Stats ══ */
+  function updateStats() {
+    document.getElementById('stat-total').textContent    = allRequests.length;
+    document.getElementById('stat-design').textContent   = allRequests.filter(r => r.status === 'tasarimda').length;
+    document.getElementById('stat-approval').textContent = allRequests.filter(r => r.status === 'merkez-onayinda').length;
+    document.getElementById('stat-published').textContent= allRequests.filter(r => r.status === 'yayinlandi').length;
+    document.getElementById('badge-all').textContent         = allRequests.length;
+    document.getElementById('badge-tasarimda').textContent   = allRequests.filter(r => r.status === 'tasarimda').length;
+    document.getElementById('badge-merkez').textContent      = allRequests.filter(r => r.status === 'merkez-onayinda').length;
+    document.getElementById('badge-yayinlandi').textContent  = allRequests.filter(r => r.status === 'yayinlandi').length;
+  }
+
+  /* ══ Render Requests ══ */
+  window.renderRequests = function() {
+    let reqs = [...allRequests];
+    if (currentView !== 'all') reqs = reqs.filter(r => r.status === currentView);
+
+    const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+    if (q) reqs = reqs.filter(r =>
+      (r.etkinlikAdi || '').toLowerCase().includes(q) ||
+      (r.createdBy?.name || '').toLowerCase().includes(q) ||
+      (r.mekan || '').toLowerCase().includes(q) ||
+      (r.ekip || '').toLowerCase().includes(q)
+    );
+
+    const order = document.getElementById('order-select').value;
+    reqs.sort((a, b) => {
+      let va, vb;
+      if (currentSort === 'event') {
+        va = a.tarih || '';
+        vb = b.tarih || '';
+        return order === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      } else {
+        va = a.createdAt?.toMillis?.() || 0;
+        vb = b.createdAt?.toMillis?.() || 0;
+        return order === 'asc' ? va - vb : vb - va;
+      }
+    });
+
+    const list  = document.getElementById('requests-list');
+    const empty = document.getElementById('empty-state');
+
+    if (!reqs.length) {
+      list.innerHTML = '';
+      empty.style.display = 'flex';
+    } else {
+      empty.style.display = 'none';
+      list.innerHTML = reqs.map((r, i) => renderCard(r, i + 1)).join('');
+    }
+  };
+
+  function renderCard(r, num) {
+    const tarihStr = r.tarih ? formatDate(r.tarih) : '—';
+    return `
+      <div class="request-card" data-status="${r.status}" onclick="openModal('${r.id}')">
+        <div class="request-card-number">#${num}</div>
+        <div class="request-card-main">
+          <div class="request-card-title">${escHtml(r.etkinlikAdi)}</div>
+          <div class="request-card-meta">
+            <span class="meta-item"><span class="meta-icon">👤</span>${escHtml(r.createdBy?.name || '—')}</span>
+            <span class="meta-item"><span class="meta-icon">🏷️</span>${escHtml(r.ekip || '—')}</span>
+            <span class="meta-item"><span class="meta-icon">📅</span>Etkinlik: ${tarihStr}</span>
+            <span class="meta-item"><span class="meta-icon">📍</span>${escHtml(r.mekan || '—')}</span>
+            <span class="meta-item"><span class="meta-icon">🕐</span>${formatRelative(r.createdAt)}</span>
+          </div>
+        </div>
+        <div class="request-card-info">
+          ${statusBadgeHTML(r.status)}
+        </div>
+      </div>`;
+  }
+
+  /* ══ Modal ══ */
+  window.openModal = function(id) {
+    const req = allRequests.find(r => r.id === id);
+    if (!req) return;
+    selectedReqId  = id;
+    selectedStatus = req.status;
+
+    const tarihStr = req.tarih ? formatDate(req.tarih) : '—';
+
+    document.getElementById('modal-title').textContent    = req.etkinlikAdi;
+    document.getElementById('modal-subtitle').textContent =
+      `Talep: ${formatDateTime(req.createdAt)}  ·  Son güncelleme: ${formatDateTime(req.updatedAt)}`;
+
+    document.getElementById('modal-body').innerHTML = `
+      <!-- Poster Önizleme -->
+      <div class="preview-poster" style="margin-bottom:20px">
+        ${req.etkinlikAdi ? `<div class="preview-event-name">${escHtml(req.etkinlikAdi)}</div>`   : ''}
+        ${req.altBaslik   ? `<div class="preview-tagline">${escHtml(req.altBaslik)}</div>`         : ''}
+        ${req.aciklama    ? `<div class="preview-desc">${escHtml(req.aciklama)}</div>`             : ''}
+        <div class="preview-meta">
+          ${req.tarih ? `<div class="preview-meta-row">📅 <span>${tarihStr}</span></div>`           : ''}
+          ${req.saat  ? `<div class="preview-meta-row">🕒 <span>${req.saat}</span></div>`          : ''}
+          ${req.mekan ? `<div class="preview-meta-row">📍 <span>${escHtml(req.mekan)}</span></div>` : ''}
+        </div>
+        ${req.ozelNot ? `<div class="preview-note">${escHtml(req.ozelNot)}</div>` : ''}
+      </div>
+
+      <!-- Detaylar -->
+      <div class="detail-grid">
+        <div class="detail-item"><div class="detail-item-label">Talep Eden</div><div class="detail-item-value">${escHtml(req.createdBy?.name || '—')}</div></div>
+        <div class="detail-item"><div class="detail-item-label">Ekip</div><div class="detail-item-value">${escHtml(req.ekip || '—')}</div></div>
+        <div class="detail-item"><div class="detail-item-label">Talep Tarihi</div><div class="detail-item-value">${formatDateTime(req.createdAt)}</div></div>
+        <div class="detail-item"><div class="detail-item-label">Son Güncelleme</div><div class="detail-item-value">${formatDateTime(req.updatedAt)}</div></div>
+      </div>
+
+      <!-- Durum Güncelle -->
+      <div class="status-changer">
+        <div class="status-changer-title">🔄 Durum Güncelle</div>
+        <div class="status-options">
+          <button class="status-option tasarimda ${req.status === 'tasarimda' ? 'selected' : ''}" onclick="selectStatus('tasarimda')">🎨 Tasarımda</button>
+          <button class="status-option merkez-onayinda ${req.status === 'merkez-onayinda' ? 'selected' : ''}" onclick="selectStatus('merkez-onayinda')">🔍 Merkez Onayında</button>
+          <button class="status-option yayinlandi ${req.status === 'yayinlandi' ? 'selected' : ''}" onclick="selectStatus('yayinlandi')">✅ Yayınlandı</button>
+        </div>
+      </div>`;
+
+    document.getElementById('detail-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.selectStatus = function(status) {
+    selectedStatus = status;
+    document.querySelectorAll('.status-option').forEach(el => el.classList.remove('selected'));
+    document.querySelector(`.status-option.${status}`)?.classList.add('selected');
+  };
+
+  window.saveStatus = async function() {
+    if (!selectedReqId || !selectedStatus) return;
+    try {
+      await updateDoc(doc(db, 'requests', selectedReqId), {
+        status:    selectedStatus,
+        updatedAt: serverTimestamp(),
+      });
+      showToast('Durum başarıyla güncellendi! ✨', 'success');
+      closeModal();
+    } catch (err) {
+      showToast('Hata: ' + err.message, 'error');
+    }
+  };
+
+  window.closeModal = function() {
+    document.getElementById('detail-modal').classList.remove('open');
+    document.body.style.overflow = '';
+    selectedReqId = null;
+  };
+  window.closeModalOnOverlay = function(e) {
+    if (e.target === document.getElementById('detail-modal')) closeModal();
+  };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  /* ══ Render Users ══ */
+  function renderUsers() {
+    const loading = document.getElementById('users-loading');
+    const table   = document.getElementById('users-table');
+    const empty   = document.getElementById('users-empty');
+    const tbody   = document.getElementById('users-tbody');
+
+    loading.style.display = 'none';
+    if (!allUsers.length) {
+      table.style.display = 'none';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display   = 'none';
+    table.style.display   = 'table';
+
+    tbody.innerHTML = allUsers.map(u => `
+      <tr>
+        <td><div class="user-row-avatar">${makeAvatar(u.name)}</div></td>
+        <td style="font-weight:600">${escHtml(u.name)}</td>
+        <td style="color:var(--text-muted);font-family:monospace">@${escHtml(u.username)}</td>
+        <td>
+          <span class="role-badge ${u.role}">
+            ${u.role === 'admin' ? '👑 Admin' : '👤 Kullanıcı'}
+          </span>
+        </td>
+        <td style="color:var(--text-muted)">${formatDate(u.createdAt)}</td>
+      </tr>
+    `).join('');
+  }
+
+  /* ══ Add User ══ */
+  window.addUser = async function() {
+    const fullname  = document.getElementById('new-fullname').value.trim();
+    const username  = document.getElementById('new-username').value.trim().toLowerCase();
+    const password  = document.getElementById('new-password').value;
+    const role      = document.getElementById('new-role').value;
+    const errEl     = document.getElementById('add-user-error');
+    const errMsgEl  = document.getElementById('add-user-error-msg');
+    const successEl = document.getElementById('add-user-success');
+    const sucMsgEl  = document.getElementById('add-user-success-msg');
+    const btn       = document.getElementById('add-user-btn');
+
+    errEl.style.display     = 'none';
+    successEl.style.display = 'none';
+
+    if (!fullname)           { errMsgEl.textContent = 'Ad Soyad zorunludur.';        errEl.style.display = 'flex'; return; }
+    if (!username)           { errMsgEl.textContent = 'Kullanıcı adı zorunludur.';   errEl.style.display = 'flex'; return; }
+    if (password.length < 6) { errMsgEl.textContent = 'Şifre en az 6 karakter olmalı.'; errEl.style.display = 'flex'; return; }
+
+    // Kullanıcı adı çakışma kontrolü
+    const duplicate = allUsers.find(u => u.username === username);
+    if (duplicate) { errMsgEl.textContent = `"${username}" kullanıcı adı zaten alınmış.`; errEl.style.display = 'flex'; return; }
+
+    btn.disabled    = true;
+    btn.textContent = 'Ekleniyor…';
+
+    try {
+      // İkincil auth instance ile kullanıcı oluştur (admin oturumu etkilenmez)
+      const email = toEmail(username);
+      const cred  = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+
+      // Firestore profili kaydet
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        name:      fullname,
+        username:  username,
+        role:      role,
+        createdAt: serverTimestamp(),
+      });
+
+      // İkincil oturumu kapat
+      await secondarySignOut(secondaryAuth);
+
+      // Formu temizle
+      document.getElementById('new-fullname').value  = '';
+      document.getElementById('new-username').value  = '';
+      document.getElementById('new-password').value  = '';
+      document.getElementById('new-role').value      = 'user';
+
+      sucMsgEl.textContent    = `"${fullname}" başarıyla eklendi! 🎉`;
+      successEl.style.display = 'flex';
+      showToast(`${fullname} kullanıcısı eklendi! ✅`, 'success');
+
+    } catch (err) {
+      let msg = 'Bir hata oluştu: ' + err.message;
+      if (err.code === 'auth/email-already-in-use') msg = 'Bu kullanıcı adı zaten kayıtlı.';
+      if (err.code === 'auth/weak-password')         msg = 'Şifre çok zayıf. En az 6 karakter girin.';
+      errMsgEl.textContent = msg;
+      errEl.style.display  = 'flex';
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = '➕ Kullanıcı Ekle';
+    }
+  };
+</script>
+</body>
+</html>

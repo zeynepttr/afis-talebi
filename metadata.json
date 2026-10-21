@@ -1,0 +1,6 @@
+{
+  "name": "Afiş Portalı — Etkinlik Afiş Talep Yönetimi",
+  "description": "Etkinlik afiş talebi oluşturma, tasarım ve onay süreçlerini takip etme ve kullanıcı yönetim portalı.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
