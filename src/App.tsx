@@ -684,7 +684,7 @@ export default function App() {
       }
 
       setRequestToEdit(null);
-      showToast('Değişiklikler kaydedildi! Yönetici paneline kırmızı uyarı iletildi. 🚨', 'success');
+      showToast('Değişiklikleriniz kaydedildi ve yöneticiye iletildi. ✓', 'success');
     } catch (err: any) {
       console.error("Save edit error:", err);
       // Fallback local update
@@ -693,14 +693,14 @@ export default function App() {
         setSelectedRequest(prev => prev ? { ...prev, ...updatedFields } : null);
       }
       setRequestToEdit(null);
-      showToast('Değişiklikler kaydedildi! (Yöneticiye kırmızı uyarı bildirildi) 🚨', 'success');
+      showToast('Değişiklikleriniz kaydedildi ve yöneticiye iletildi. ✓', 'success');
     } finally {
       setSavingEdit(false);
     }
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 6e. ADMIN ACTION: ACKNOWLEDGE USER CHANGE (DISMISS RED ALERT)
+  // 6e. ADMIN ACTION: APPROVE / ACKNOWLEDGE USER CHANGE (STOPS RED ALERT)
   // ─────────────────────────────────────────────────────────────
   const handleAcknowledgeChange = async (requestId: string) => {
     if (!requestId) return;
@@ -717,14 +717,14 @@ export default function App() {
         setSelectedRequest(prev => prev ? { ...prev, adminAcknowledgedChange: true } : null);
       }
 
-      showToast('Değişiklik incelendi olarak işaretlendi. Kırmızı uyarı kapatıldı. ✓', 'info');
+      showToast('Değişiklik onaylandı! Kırmızı uyarı durduruldu. ✓', 'success');
     } catch (err: any) {
       console.error("Acknowledge change error:", err);
       setRequests(prev => prev.map(r => r.id === requestId ? { ...r, adminAcknowledgedChange: true } : r));
       if (selectedRequest?.id === requestId) {
         setSelectedRequest(prev => prev ? { ...prev, adminAcknowledgedChange: true } : null);
       }
-      showToast('Uyarı kapatıldı. ✓', 'info');
+      showToast('Değişiklik onaylandı! Uyarı kaldırıldı. ✓', 'success');
     } finally {
       setAcknowledgingId(null);
     }
@@ -906,6 +906,22 @@ export default function App() {
       return formatDateOnly(val);
     } catch {
       return '—';
+    }
+  };
+
+  const getDaysUntilEvent = (dateStr: string) => {
+    if (!dateStr) return null;
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return null;
+      const targetDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      targetDate.setHours(0, 0, 0, 0);
+      const diffTime = targetDate.getTime() - today.getTime();
+      return Math.round(diffTime / (1000 * 60 * 60 * 24));
+    } catch {
+      return null;
     }
   };
 
@@ -1770,6 +1786,25 @@ export default function App() {
                             </div>
                           </div>
 
+                          {/* 7-DAY ADVANCE NOTICE REMINDER */}
+                          {formData.tarih && (() => {
+                            const diffDays = getDaysUntilEvent(formData.tarih);
+                            if (diffDays === null || diffDays >= 7) return null;
+                            return (
+                              <div className="mb-3 p-3 bg-amber-50 border border-amber-200/90 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 animate-fade-in">
+                                <span className="text-base shrink-0 mt-0.5">⚠️</span>
+                                <div>
+                                  <strong className="font-bold block text-amber-950">
+                                    Hatırlatma: Etkinliğe {diffDays <= 0 ? '1 günden az süre kaldı' : `${diffDays} gün kaldı`}!
+                                  </strong>
+                                  <span className="text-[11px] text-amber-800 leading-relaxed block mt-0.5">
+                                    Afiş taleplerinin en geç etkinlik tarihinden <strong>7 gün önce</strong> yapılması önerilir. Talebinizi oluşturabilirsiniz; afiş tasarım ve onay sürecinin zamanında yetişebilmesi için lütfen aciliyetini aşağıdaki özel not alanında belirtiniz.
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
                           <div>
                             <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
                               Mekan / Salon <span className="text-red-500">*</span>
@@ -2228,6 +2263,7 @@ export default function App() {
                 <div className="space-y-3">
                   {filteredRequests.map((req, index) => {
                     const cfg = STATUS_CONFIG[req.status] || STATUS_CONFIG['talep-alindi'];
+                    const isAdmin = currentUser.role === 'admin';
                     const hasUnseenChanges = Boolean(req.hasUserChanges && !req.adminAcknowledgedChange);
 
                     return (
@@ -2235,14 +2271,14 @@ export default function App() {
                         key={req.id || index}
                         onClick={() => setSelectedRequest(req)}
                         className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4 ${
-                          hasUnseenChanges
+                          isAdmin && hasUnseenChanges
                             ? 'border-red-300 border-l-4 border-l-red-600 bg-red-50/20 ring-2 ring-red-400/40 shadow-sm'
                             : `border-slate-200/80 border-l-4 ${cfg.borderColor}`
                         }`}
                       >
                         <div className="flex-1 min-w-0 w-full">
-                          {/* UNSEEN USER CHANGES RED ALERT BANNER FOR ADMIN & USER */}
-                          {hasUnseenChanges && (
+                          {/* UNSEEN USER CHANGES RED ALERT BANNER (ONLY FOR ADMIN) */}
+                          {isAdmin && hasUnseenChanges && (
                             <div className="mb-2.5 p-2 sm:p-2.5 rounded-xl bg-red-600 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs animate-pulse">
                               <div className="flex items-center gap-1.5 text-xs font-black">
                                 <AlertTriangle size={15} className="shrink-0" />
@@ -2254,6 +2290,28 @@ export default function App() {
                                 </span>
                               )}
                             </div>
+                          )}
+
+                          {/* USER NOTIFICATION PILL (ONLY FOR REGULAR USER - CALM STATUS) */}
+                          {!isAdmin && req.hasUserChanges && (
+                            !req.adminAcknowledgedChange ? (
+                              <div className="mb-2.5 p-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 flex items-center justify-between gap-2 text-xs">
+                                <div className="flex items-center gap-1.5 font-semibold">
+                                  <span>ℹ️</span>
+                                  <span>Yaptığınız değişiklik yöneticiye iletildi, inceleniyor.</span>
+                                </div>
+                                {req.userChangesNote && (
+                                  <span className="text-[11px] text-blue-700 italic truncate max-w-xs">
+                                    "{req.userChangesNote}"
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="mb-2.5 p-1.5 px-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-1.5 text-xs font-semibold">
+                                <CheckCircle2 size={13} className="text-emerald-600" />
+                                <span>Yaptığınız değişiklik yönetici tarafından onaylandı.</span>
+                              </div>
+                            )
                           )}
 
                           {/* Header row with badges & dates */}
@@ -2269,15 +2327,29 @@ export default function App() {
                               <span className="text-slate-400 font-normal">({formatRelative(req.createdAt)})</span>
                             </span>
 
-                            {req.hasUserChanges && (
-                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 ${
-                                hasUnseenChanges
-                                  ? 'bg-red-100 text-red-700 border border-red-200'
-                                  : 'bg-slate-100 text-slate-600'
-                              }`}>
-                                <span>✏️</span>
-                                <span>{hasUnseenChanges ? 'Yeni Değişiklik' : 'Düzenlendi'}</span>
-                              </span>
+                            {/* Status badge for change */}
+                            {isAdmin ? (
+                              req.hasUserChanges && (
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                                  hasUnseenChanges
+                                    ? 'bg-red-100 text-red-700 border border-red-200'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  <span>✏️</span>
+                                  <span>{hasUnseenChanges ? 'Yeni Değişiklik' : 'Düzenlendi (Onaylı)'}</span>
+                                </span>
+                              )
+                            ) : (
+                              req.hasUserChanges && (
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                                  !req.adminAcknowledgedChange
+                                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                }`}>
+                                  <span>{!req.adminAcknowledgedChange ? '⏳' : '✓'}</span>
+                                  <span>{!req.adminAcknowledgedChange ? 'İletildi' : 'Onaylandı'}</span>
+                                </span>
+                              )
                             )}
                           </div>
 
@@ -2381,6 +2453,23 @@ export default function App() {
                                 <span>Kilitli</span>
                               </span>
                             )
+                          )}
+
+                          {/* ADMIN QUICK APPROVE BUTTON: Stops red warning */}
+                          {currentUser.role === 'admin' && hasUnseenChanges && (
+                            <button
+                              type="button"
+                              disabled={acknowledgingId === req.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAcknowledgeChange(req.id);
+                              }}
+                              className="min-h-[34px] px-2.5 py-1 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs transition-transform flex items-center gap-1 shrink-0"
+                              title="Değişikliği Onayla ve Kırmızı Uyarıyı Kaldır"
+                            >
+                              <Check size={13} />
+                              <span>{acknowledgingId === req.id ? '…' : 'Onayla'}</span>
+                            </button>
                           )}
 
                           {currentUser.role === 'admin' && (
@@ -2567,8 +2656,8 @@ export default function App() {
 
             {/* Modal Content */}
             <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1">
-              {/* UNSEEN USER CHANGES RED ALERT BOX */}
-              {selectedRequest.hasUserChanges && !selectedRequest.adminAcknowledgedChange && (
+              {/* ADMIN VIEW: UNSEEN USER CHANGES RED ALERT BOX */}
+              {currentUser.role === 'admin' && selectedRequest.hasUserChanges && !selectedRequest.adminAcknowledgedChange && (
                 <div className="bg-red-600 text-white rounded-2xl p-4 sm:p-5 shadow-lg border border-red-700 space-y-2.5 animate-pulse">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2">
@@ -2577,24 +2666,23 @@ export default function App() {
                         🚨 DİKKAT: TALEP SAHİBİ DEĞİŞİKLİK YAPTI!
                       </span>
                     </div>
-                    {currentUser.role === 'admin' && (
-                      <button
-                        type="button"
-                        disabled={acknowledgingId === selectedRequest.id}
-                        onClick={() => handleAcknowledgeChange(selectedRequest.id)}
-                        className="px-3.5 py-2 bg-white text-red-700 hover:bg-red-50 active:scale-95 text-xs font-black rounded-xl shadow-xs transition-transform shrink-0"
-                      >
-                        {acknowledgingId === selectedRequest.id ? 'İşleniyor…' : '✓ İnceledim (Kırmızı Uyarıyı Kapat)'}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      disabled={acknowledgingId === selectedRequest.id}
+                      onClick={() => handleAcknowledgeChange(selectedRequest.id)}
+                      className="px-3.5 py-2 bg-white text-red-700 hover:bg-red-50 active:scale-95 text-xs font-black rounded-xl shadow-xs transition-transform shrink-0 flex items-center gap-1.5"
+                    >
+                      <Check size={14} className="text-red-700" />
+                      <span>{acknowledgingId === selectedRequest.id ? 'Onaylanıyor…' : '✓ Değişikliği Onayla (Uyarıyı Kapat)'}</span>
+                    </button>
                   </div>
                   <p className="text-xs text-red-100 font-medium leading-relaxed">
-                    Kullanıcı bu afiş talebinde sonradan değişiklik yapmıştır. Lütfen güncellenen bilgileri kontrol ediniz.
+                    Kullanıcı bu afiş talebinde sonradan değişiklik yapmıştır. Güncellenen bilgileri kontrol edip yukarıdaki butona tıklayarak kırmızı uyarıyı kaldırabilirsiniz.
                   </p>
                   {selectedRequest.userChangesNote && (
                     <div className="bg-red-700/90 p-3 rounded-xl text-xs font-semibold text-white border border-red-500/60">
                       <span className="font-bold text-red-200 block text-[10px] uppercase tracking-wider mb-0.5">
-                        Kullanıcının Notu:
+                        Kullanıcının Değişiklik Notu:
                       </span>
                       "{selectedRequest.userChangesNote}"
                     </div>
@@ -2607,17 +2695,42 @@ export default function App() {
                 </div>
               )}
 
-              {/* Already Acknowledged Info Pill */}
-              {selectedRequest.hasUserChanges && selectedRequest.adminAcknowledgedChange && (
+              {/* ADMIN VIEW: ALREADY APPROVED NOTE */}
+              {currentUser.role === 'admin' && selectedRequest.hasUserChanges && selectedRequest.adminAcknowledgedChange && (
                 <div className="bg-slate-100 border border-slate-200 rounded-xl p-3 text-xs text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2 font-medium">
                     <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-                    <span>Bu talepte kullanıcı tarafından düzenleme yapılmıştır (Yönetici tarafından incelendi).</span>
+                    <span>Bu talepteki kullanıcı değişikliği incelenip onaylanmıştır.</span>
                   </div>
                   {selectedRequest.userChangesNote && (
                     <span className="text-[11px] text-slate-500 italic truncate max-w-xs">"{selectedRequest.userChangesNote}"</span>
                   )}
                 </div>
+              )}
+
+              {/* USER VIEW: CALM STATUS (ONLY TELLS USER THAT CHANGE WAS SENT TO ADMIN) */}
+              {currentUser.role === 'user' && selectedRequest.hasUserChanges && (
+                !selectedRequest.adminAcknowledgedChange ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-xs text-blue-900 flex items-start gap-2.5">
+                    <span className="text-base shrink-0 mt-0.5">ℹ️</span>
+                    <div>
+                      <strong className="block text-blue-950 font-bold">Değişikliğiniz Yöneticiye İletildi</strong>
+                      <p className="text-[11px] text-blue-800 mt-0.5 leading-relaxed">
+                        Yaptığınız düzenleme admin paneline iletilmiştir. Tasarım ekibi güncel bilgileri inceledikten sonra onaylayacaktır.
+                      </p>
+                      {selectedRequest.userChangesNote && (
+                        <p className="text-[11px] text-blue-700 italic mt-1 font-semibold">
+                          İlettiğiniz Not: "{selectedRequest.userChangesNote}"
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-xs text-emerald-800 flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                    <span className="font-semibold">Yaptığınız değişiklik yönetici tarafından incelenip onaylanmıştır.</span>
+                  </div>
+                )
               )}
 
               {/* Poster Preview */}
@@ -2879,12 +2992,12 @@ export default function App() {
               </button>
             </div>
 
-            {/* Red Warning Banner explaining admin notification */}
-            <div className="bg-red-50 border-b border-red-200 px-4 py-3 sm:px-6 flex items-start gap-2.5 shrink-0 text-xs text-red-800">
-              <AlertTriangle size={18} className="text-red-600 shrink-0 mt-0.5" />
+            {/* Informative Banner for user */}
+            <div className="bg-blue-50 border-b border-blue-200 px-4 py-3 sm:px-6 flex items-start gap-2.5 shrink-0 text-xs text-blue-900">
+              <span className="text-base shrink-0 mt-0.5">ℹ️</span>
               <div>
-                <strong className="font-bold block text-red-900">🚨 Yöneticiye Kırmızı Uyarı Gönderilecek</strong>
-                Kaydettiğiniz değişiklikler anında Admin Paneline kırmızı uyarı ve bildirim olarak yansıtılacaktır.
+                <strong className="font-bold block text-blue-950">Değişiklikleriniz Yöneticiye İletilecektir</strong>
+                Kaydettiğiniz güncellemeler incelenip onaylanması için otomatik olarak Admin Paneline bildirilecektir.
               </div>
             </div>
 
@@ -2961,6 +3074,25 @@ export default function App() {
                 </div>
               </div>
 
+              {/* 7-DAY ADVANCE NOTICE REMINDER IN EDIT MODAL */}
+              {editFormData.tarih && (() => {
+                const diffDays = getDaysUntilEvent(editFormData.tarih);
+                if (diffDays === null || diffDays >= 7) return null;
+                return (
+                  <div className="p-3 bg-amber-50 border border-amber-200/90 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 animate-fade-in">
+                    <span className="text-base shrink-0 mt-0.5">⚠️</span>
+                    <div>
+                      <strong className="font-bold block text-amber-950">
+                        Hatırlatma: Etkinliğe {diffDays <= 0 ? '1 günden az süre kaldı' : `${diffDays} gün kaldı`}!
+                      </strong>
+                      <span className="text-[11px] text-amber-800 leading-relaxed block mt-0.5">
+                        Afiş taleplerinin en geç etkinlik tarihinden <strong>7 gün önce</strong> yapılması önerilir. Güncellemenizi kaydedebilirsiniz; afiş revize sürecinin zamanında yetişebilmesi için lütfen aciliyetini aşağıdaki notta belirtiniz.
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Mekan / Adres <span className="text-red-500">*</span>
@@ -3031,7 +3163,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="w-full sm:w-auto min-h-[44px] px-6 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-md shadow-red-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50 order-1 sm:order-2"
+                  className="w-full sm:w-auto min-h-[44px] px-6 py-2.5 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white text-xs font-bold rounded-xl shadow-md shadow-violet-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50 order-1 sm:order-2"
                 >
                   {savingEdit ? (
                     <>
@@ -3039,7 +3171,7 @@ export default function App() {
                     </>
                   ) : (
                     <>
-                      <span>🚨 Değişiklikleri Kaydet &amp; Bildir</span>
+                      <span>✓ Değişiklikleri Kaydet &amp; İlet</span>
                     </>
                   )}
                 </button>
