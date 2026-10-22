@@ -19,7 +19,7 @@ import {
   rtdbOnValue,
   rtdbRemove
 } from './firebase';
-import { AppUser, PosterRequest, RequestStatus, STATUS_CONFIG } from './types';
+import { AppUser, PosterRequest, RequestStatus, RequestType, FormStatus, STATUS_CONFIG, FORM_STATUS_CONFIG, UserRole } from './types';
 import {
   Calendar,
   Clock,
@@ -49,12 +49,42 @@ import {
   ChevronDown,
   Trash2,
   Edit3,
-  AlertTriangle
+  AlertTriangle,
+  ExternalLink,
+  Copy,
+  FileSpreadsheet,
+  Layers,
+  ListChecks,
+  Link as LinkIcon
 } from 'lucide-react';
 
 const INITIAL_DEFAULT_REQUESTS: PosterRequest[] = [
   {
+    id: 'req-sample-bolu',
+    talepTuru: 'hepsi',
+    etkinlikAdi: '🍁 Bolu Sonbahar Tefekkür Gezisi',
+    ekip: 'Hanım Gönüllüler Birimi',
+    altBaslik: 'Sonbaharın renklerini keşfedeceğimiz, huzur dolu tefekkür gezisi',
+    aciklama: 'Bolu ‘ da sonbaharın renklerini keşfedeceğimiz, huzur dolu tefekkür gezimize tüm hanım gönüllülerimiz davetlidir.🍁✨\n✔️ Gezi ücretimiz: 1000 TL’dir. (Geliri Filistin fonuna aktarılacaktır.)\n✔️ İkramımız: Sabah sandviç ve meyve suyu ikramımız olacaktır.\n📞 İletişim & Kayıt: 0533 560 74 89\n📅 Tarih: 31.10.2026 (Cumartesi)\n⏰ Kalkış: 06.30 — Üniversite Metro İstasyonu\n🚌 Gezimiz günübirliktir.\n📍 Güzergah: Bolu / Yedigöller',
+    tarih: '2026-10-31',
+    saat: '06:30',
+    mekan: 'Bolu / Yedigöller (Kalkış: Üniversite Metro İstasyonu)',
+    ozelNot: '* Katılımcıların sabah saat 06:15\'te toplanma yerinde hazır bulunmaları rica olunur.',
+    status: 'tasarimda',
+    formSorulari: ['İsim / Soyisim', 'Bölüm', 'Sınıf', 'Telefon Numarası'],
+    formAciklamasi: 'Bolu ‘ da sonbaharın renklerini keşfedeceğimiz, huzur dolu tefekkür gezimize tüm hanım gönüllülerimiz davetlidir.🍁✨\n✔️ Gezi ücretimiz: 1000 TL’dir. (Geliri Filistin fonuna aktarılacaktır.)\n✔️ İkramımız: Sabah sandviç ve meyve suyu ikramımız olacaktır.\n📞 İletişim & Kayıt: 0533 560 74 89\n📅 Tarih: 31.10.2026 (Cumartesi)\n⏰ Kalkış: 06.30 — Üniversite Metro İstasyonu\n🚌 Gezimiz günübirliktir.\n📍 Güzergah: Bolu / Yedigöller',
+    formSartlari: '* Bolu gezisine katılmak için açıklamadaki iletişim numarasını arayarak gönüllü kaydı yapacağımı ve kimlik fotokopisi atacağımı taahhüt ederim.\n* Kontenjanımız sınırlı olup, kayıt kesinleştirmek için 250 TL depozito alınmaktadır. İptal durumunda depozito iadesi yapılmayacaktır.',
+    formLink: 'https://forms.gle/bolu-gezi-kayit-2026',
+    formStatus: 'form-hazir',
+    formAddedBy: { uid: 'adminokur-demo', name: 'Adminokur (Form Yöneticisi)' },
+    formAddedAt: Date.now() - 3600 * 5 * 1000,
+    createdBy: { uid: 'user-demo-1', name: 'Ahmet Yılmaz' },
+    createdAt: Date.now() - 3600 * 24 * 1000,
+    updatedAt: Date.now() - 3600 * 5 * 1000
+  },
+  {
     id: 'req-sample-1',
+    talepTuru: 'afis',
     etkinlikAdi: '🚀 ATOM Teknoloji ve İnovasyon Buluşması',
     ekip: 'ATOM Geliştirici Ekibi',
     altBaslik: 'Geleceği kodlayan gençlerin ilham dolu buluşması!',
@@ -69,7 +99,28 @@ const INITIAL_DEFAULT_REQUESTS: PosterRequest[] = [
     updatedAt: Date.now() - 3600 * 2 * 1000
   },
   {
+    id: 'req-sample-form-only',
+    talepTuru: 'form',
+    etkinlikAdi: '🎤 Kariyer Sohbetleri Katılımcı Kayıt Formu',
+    ekip: 'Sosyal Etkinlik Birimi',
+    altBaslik: 'Sektörün öncüleriyle buluşma öncesi kayıt',
+    aciklama: 'Lider konuklarımızın tecrübelerini dinleyeceğimiz özel söyleşi için ön kayıt formu.',
+    tarih: '2026-11-28',
+    saat: '18:00',
+    mekan: 'Büyük Oditoryum Salonu',
+    ozelNot: '* Kontenjan 120 kişiyle sınırlıdır.',
+    status: 'talep-alindi',
+    formSorulari: ['İsim / Soyisim', 'Bölüm', 'Sınıf', 'Telefon Numarası', 'İlgi Alanınız'],
+    formAciklamasi: 'Kariyer Sohbetleri katılımınızı kesinleştirmek için lütfen formu eksiksiz doldurunuz.',
+    formSartlari: '* Katılım sertifikası program sonunda takdim edilecektir.',
+    formStatus: 'form-bekliyor',
+    createdBy: { uid: 'user-demo-3', name: 'Mehmet Demir' },
+    createdAt: Date.now() - 86400 * 2 * 1000,
+    updatedAt: Date.now() - 86400 * 2 * 1000
+  },
+  {
     id: 'req-sample-2',
+    talepTuru: 'afis',
     etkinlikAdi: '🎨 Genç Sanat & İllüstrasyon Atölyesi',
     ekip: 'Sanat & Kültür Kulübü',
     altBaslik: 'Renklerin diliyle kendini ifade et!',
@@ -82,21 +133,6 @@ const INITIAL_DEFAULT_REQUESTS: PosterRequest[] = [
     createdBy: { uid: 'user-demo-2', name: 'Elif Kaya' },
     createdAt: Date.now() - 86400 * 1000,
     updatedAt: Date.now() - 86400 * 500
-  },
-  {
-    id: 'req-sample-3',
-    etkinlikAdi: '🎤 Kariyer Sohbetleri: Sektörün Öncüleri',
-    ekip: 'Sosyal Etkinlik Birimi',
-    altBaslik: 'Başarı hikayelerinden ilham al, network edin!',
-    aciklama: 'Farklı sektörlerden lider konuklarımızın tecrübelerini dinleyeceğimiz özel söyleşi dizisi.',
-    tarih: '2026-11-28',
-    saat: '18:00',
-    mekan: 'Büyük Oditoryum Salonu',
-    ozelNot: '* Katılımcılara katılım sertifikası verilecektir.',
-    status: 'yayinlandi',
-    createdBy: { uid: 'user-demo-3', name: 'Mehmet Demir' },
-    createdAt: Date.now() - 86400 * 3 * 1000,
-    updatedAt: Date.now() - 86400 * 1000
   }
 ];
 
@@ -124,6 +160,7 @@ export default function App() {
 
   // ── Portal Navigation ──
   const [activeTab, setActiveTab] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'afis' | 'form' | 'hepsi'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'created' | 'event'>('created');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
@@ -139,9 +176,15 @@ export default function App() {
   const [requestToDelete, setRequestToDelete] = useState<PosterRequest | null>(null);
   const [deletingRequest, setDeletingRequest] = useState(false);
 
+  // ── Adminokur Form Link Modal ──
+  const [formLinkModalReq, setFormLinkModalReq] = useState<PosterRequest | null>(null);
+  const [formLinkInput, setFormLinkInput] = useState('');
+  const [savingFormLink, setSavingFormLink] = useState(false);
+
   // ── Edit Request State (User) ──
   const [requestToEdit, setRequestToEdit] = useState<PosterRequest | null>(null);
   const [editFormData, setEditFormData] = useState({
+    talepTuru: 'afis' as RequestType,
     etkinlikAdi: '',
     ekip: '',
     altBaslik: '',
@@ -150,8 +193,11 @@ export default function App() {
     saat: '',
     mekan: '',
     ozelNot: '',
+    formAciklamasi: '',
     userChangesNote: ''
   });
+  const [editFormQuestions, setEditFormQuestions] = useState<string[]>([]);
+  const [editNewQuestionInput, setEditNewQuestionInput] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
 
@@ -159,12 +205,13 @@ export default function App() {
   const [newFullname, setNewFullname] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<'user' | 'admin'>('user');
+  const [newRole, setNewRole] = useState<UserRole>('user');
   const [creatingUser, setCreatingUser] = useState(false);
   const [userCreateMsg, setUserCreateMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // ── New Request Form (User) ──
   const [formData, setFormData] = useState({
+    talepTuru: 'hepsi' as RequestType, // Default to both or user picks
     etkinlikAdi: '',
     ekip: '',
     altBaslik: '',
@@ -172,10 +219,24 @@ export default function App() {
     tarih: '',
     saat: '',
     mekan: '',
-    ozelNot: ''
+    ozelNot: '',
+    formAciklamasi: ''
   });
+  const [formQuestions, setFormQuestions] = useState<string[]>([
+    'İsim / Soyisim',
+    'Bölüm',
+    'Sınıf',
+    'Telefon Numarası'
+  ]);
+  const [newQuestionInput, setNewQuestionInput] = useState('');
   const [submittingRequest, setSubmittingRequest] = useState(false);
   const [mobileFormTab, setMobileFormTab] = useState<'form' | 'preview'>('form');
+
+  // ── Role Helpers ──
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'admin_afis' || currentUser?.role === 'admin_form';
+  const isAfisManager = currentUser?.role === 'admin' || currentUser?.role === 'admin_afis';
+  const isFormManager = currentUser?.role === 'admin' || currentUser?.role === 'admin_form';
+
 
   // ── Toast Notifications ──
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -421,23 +482,46 @@ export default function App() {
         console.warn("RTDB search warning:", err);
       }
 
-      // Built-in initial admin fallback if not yet configured in database
-      if (!matchedUser && (
-        (uname === 'zeynep' && (pass === '123456' || pass === 'zeynep123')) ||
-        (uname === 'admin' && (pass === 'admin123' || pass === '123456'))
-      )) {
-        matchedUser = {
-          uid: 'admin-zeynep',
-          name: uname === 'zeynep' ? 'Zeynep Tatar' : 'Sistem Yöneticisi',
-          username: uname,
-          role: 'admin',
-          createdAt: Date.now()
-        };
+      // Built-in initial role fallback for instant access & testing
+      if (!matchedUser) {
+        if (uname === 'zeynep' && (pass === '123456' || pass === 'zeynep123')) {
+          matchedUser = {
+            uid: 'admin-afis-zeynep',
+            name: 'Zeynep Tatar (Afiş Yöneticisi)',
+            username: uname,
+            role: 'admin_afis',
+            createdAt: Date.now()
+          };
+        } else if (uname === 'adminokur' && (pass === '123456' || pass === 'admin123')) {
+          matchedUser = {
+            uid: 'admin-form-okur',
+            name: 'Adminokur (Form Yöneticisi)',
+            username: uname,
+            role: 'admin_form',
+            createdAt: Date.now()
+          };
+        } else if (uname === 'admin' && (pass === 'admin123' || pass === '123456')) {
+          matchedUser = {
+            uid: 'admin-genel',
+            name: 'Genel Sistem Yöneticisi',
+            username: uname,
+            role: 'admin',
+            createdAt: Date.now()
+          };
+        } else if (uname === 'ahmet' && (pass === '123456' || pass === 'ahmet123')) {
+          matchedUser = {
+            uid: 'user-demo-1',
+            name: 'Ahmet Yılmaz (Gönüllü)',
+            username: uname,
+            role: 'user',
+            createdAt: Date.now()
+          };
+        }
       }
 
       if (matchedUser) {
         setCurrentUser(matchedUser);
-        setActiveTab(matchedUser.role === 'admin' ? 'all' : 'requests');
+        setActiveTab(matchedUser.role === 'user' ? 'requests' : 'all');
         showToast(`Hoş geldiniz, ${matchedUser.name}! 👋`, 'success');
         setLoginLoading(false);
         return;
@@ -453,11 +537,17 @@ export default function App() {
           uid: cred.user.uid,
           name: uData.name || uname,
           username: uData.username || uname,
-          role: uData.role === 'admin' ? 'admin' : 'user',
+          role: uData.role === 'admin_afis'
+            ? 'admin_afis'
+            : uData.role === 'admin_form'
+            ? 'admin_form'
+            : uData.role === 'admin'
+            ? 'admin'
+            : 'user',
           createdAt: uData.createdAt
         };
         setCurrentUser(userObj);
-        setActiveTab(userObj.role === 'admin' ? 'all' : 'requests');
+        setActiveTab(userObj.role === 'user' ? 'requests' : 'all');
         showToast(`Hoş geldiniz, ${userObj.name}! 👋`, 'success');
         setLoginLoading(false);
         return;
@@ -548,7 +638,7 @@ export default function App() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 6. ADMIN ACTION: UPDATE STATUS
+  // 6. ADMIN ACTION: UPDATE STATUS (AFİŞ YÖNETİCİSİ / GENEL ADMIN)
   // ─────────────────────────────────────────────────────────────
   const handleUpdateStatus = async (status: RequestStatus) => {
     if (!selectedRequest) return;
@@ -561,7 +651,7 @@ export default function App() {
       });
 
       setSelectedRequest(prev => prev ? { ...prev, status } : null);
-      showToast(`Durum "${STATUS_CONFIG[status]?.label}" olarak güncellendi! ✨`, 'success');
+      showToast(`Afiş durumu "${STATUS_CONFIG[status]?.label}" olarak güncellendi! ✨`, 'success');
     } catch (err: any) {
       console.error("Status update error:", err);
       showToast('Durum güncellenemedi: ' + err.message, 'error');
@@ -587,7 +677,6 @@ export default function App() {
       showToast(`"${target.etkinlikAdi}" etkinliği kalıcı olarak silindi. 🗑️`, 'info');
     } catch (err: any) {
       console.error("Delete request error:", err);
-      // Even if offline/permission issue, remove from local state
       setRequests(prev => prev.filter(r => r.id !== target.id));
       if (selectedRequest?.id === target.id) {
         setSelectedRequest(null);
@@ -600,7 +689,67 @@ export default function App() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 6c. USER ACTION: START EDITING REQUEST (BEFORE 'yayinlandi')
+  // 6c. ADMINOKUR (FORM YÖNETİCİSİ) ACTION: SAVE / UPDATE GOOGLE FORM LINK
+  // ─────────────────────────────────────────────────────────────
+  const handleSaveFormLink = async (requestId: string, link: string) => {
+    if (!requestId) return;
+    const trimmed = link.trim();
+    if (!trimmed) {
+      showToast('Lütfen geçerli bir Google Form linki girin.', 'error');
+      return;
+    }
+    setSavingFormLink(true);
+    const now = Date.now();
+    const updateData = {
+      formLink: trimmed,
+      formStatus: 'form-hazir' as FormStatus,
+      formAddedBy: {
+        uid: currentUser?.uid || 'adminokur',
+        name: currentUser?.name || 'Adminokur (Form Yöneticisi)'
+      },
+      formAddedAt: now,
+      updatedAt: now
+    };
+
+    try {
+      await rtdbUpdate(rtdbRef(rtdb, `requests/${requestId}`), updateData);
+      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, ...updateData } : r));
+      if (selectedRequest?.id === requestId) {
+        setSelectedRequest(prev => prev ? { ...prev, ...updateData } : null);
+      }
+      setFormLinkModalReq(null);
+      setFormLinkInput('');
+      showToast('Google Form linki kaydedildi ve herkese yayınlandı! 🎉', 'success');
+    } catch (err: any) {
+      console.error("Form link save error:", err);
+      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, ...updateData } : r));
+      if (selectedRequest?.id === requestId) {
+        setSelectedRequest(prev => prev ? { ...prev, ...updateData } : null);
+      }
+      setFormLinkModalReq(null);
+      setFormLinkInput('');
+      showToast('Google Form linki kaydedildi ve yayınlandı! ✓', 'success');
+    } finally {
+      setSavingFormLink(false);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // 6d. CLIPBOARD HELPER: COPY LINK
+  // ─────────────────────────────────────────────────────────────
+  const handleCopyLink = (url: string) => {
+    if (!url) return;
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => showToast('Google Form linki kopyalandı! 📋', 'success'))
+        .catch(() => showToast('Link: ' + url, 'info'));
+    } else {
+      showToast('Link: ' + url, 'info');
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // 6e. USER ACTION: START EDITING REQUEST (BEFORE 'yayinlandi')
   // ─────────────────────────────────────────────────────────────
   const handleStartEdit = (req: PosterRequest) => {
     if (req.status === 'yayinlandi') {
@@ -609,6 +758,7 @@ export default function App() {
     }
     setRequestToEdit(req);
     setEditFormData({
+      talepTuru: req.talepTuru || 'afis',
       etkinlikAdi: req.etkinlikAdi || '',
       ekip: req.ekip || '',
       altBaslik: req.altBaslik || '',
@@ -617,12 +767,19 @@ export default function App() {
       saat: req.saat || '',
       mekan: req.mekan || '',
       ozelNot: req.ozelNot || '',
+      formAciklamasi: req.formAciklamasi || '',
       userChangesNote: req.userChangesNote || ''
     });
+    setEditFormQuestions(
+      req.formSorulari && req.formSorulari.length > 0
+        ? [...req.formSorulari]
+        : ['İsim / Soyisim', 'Bölüm', 'Sınıf', 'Telefon Numarası']
+    );
+    setEditNewQuestionInput('');
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 6d. USER ACTION: SAVE EDITED REQUEST (FLAGS RED WARNING TO ADMIN)
+  // 6f. USER ACTION: SAVE EDITED REQUEST (FLAGS RED WARNING TO ADMIN)
   // ─────────────────────────────────────────────────────────────
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -657,11 +814,13 @@ export default function App() {
 
     setSavingEdit(true);
     const nowTimestamp = Date.now();
+    const isForm = editFormData.talepTuru === 'form' || editFormData.talepTuru === 'hepsi';
 
-    const updatedFields = {
+    const updatedFields: Record<string, any> = {
+      talepTuru: editFormData.talepTuru,
       etkinlikAdi: editFormData.etkinlikAdi.trim(),
       ekip: editFormData.ekip.trim(),
-      altBaslik: editFormData.altBaslik.trim(),
+      altBaslik: editFormData.talepTuru === 'form' ? '' : editFormData.altBaslik.trim(),
       aciklama: editFormData.aciklama.trim(),
       tarih: editFormData.tarih,
       saat: editFormData.saat,
@@ -673,6 +832,11 @@ export default function App() {
       userChangesNote: editFormData.userChangesNote.trim() || 'Bilgiler talep sahibi tarafından güncellendi.',
       updatedAt: nowTimestamp
     };
+
+    if (isForm) {
+      updatedFields.formAciklamasi = editFormData.formAciklamasi.trim();
+      updatedFields.formSorulari = editFormQuestions;
+    }
 
     try {
       await rtdbUpdate(rtdbRef(rtdb, `requests/${requestToEdit.id}`), updatedFields);
@@ -687,7 +851,6 @@ export default function App() {
       showToast('Değişiklikleriniz kaydedildi ve yöneticiye iletildi. ✓', 'success');
     } catch (err: any) {
       console.error("Save edit error:", err);
-      // Fallback local update
       setRequests(prev => prev.map(r => r.id === requestToEdit.id ? { ...r, ...updatedFields } : r));
       if (selectedRequest?.id === requestToEdit.id) {
         setSelectedRequest(prev => prev ? { ...prev, ...updatedFields } : null);
@@ -700,7 +863,7 @@ export default function App() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 6e. ADMIN ACTION: APPROVE / ACKNOWLEDGE USER CHANGE (STOPS RED ALERT)
+  // 6g. ADMIN ACTION: APPROVE / ACKNOWLEDGE USER CHANGE (STOPS RED ALERT)
   // ─────────────────────────────────────────────────────────────
   const handleAcknowledgeChange = async (requestId: string) => {
     if (!requestId) return;
@@ -731,7 +894,32 @@ export default function App() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 7. USER ACTION: SUBMIT REQUEST (STARTS AT 'talep-alindi' & NO HANG)
+  // 6h. TEMPLATE ACTION: POPULATE BOLU GEZİSİ SAMPLE DATA
+  // ─────────────────────────────────────────────────────────────
+  const handleLoadBoluTemplate = () => {
+    setFormData({
+      talepTuru: 'hepsi',
+      etkinlikAdi: '🍁 Bolu Sonbahar Tefekkür Gezisi',
+      ekip: 'Hanım Gönüllüler Birimi',
+      altBaslik: 'Sonbaharın renklerini keşfedeceğimiz, huzur dolu tefekkür gezisi',
+      aciklama: 'Bolu ‘ da sonbaharın renklerini keşfedeceğimiz, huzur dolu tefekkür gezimize tüm hanım gönüllülerimiz davetlidir.🍁✨\n✔️ Gezi ücretimiz: 1000 TL’dir. (Geliri Filistin fonuna aktarılacaktır.)\n✔️ İkramımız: Sabah sandviç ve meyve suyu ikramımız olacaktır.\n📞 İletişim & Kayıt: 0533 560 74 89\n📅 Tarih: 31.10.2026 (Cumartesi)\n⏰ Kalkış: 06.30 — Üniversite Metro İstasyonu\n🚌 Gezimiz günübirliktir.\n📍 Güzergah: Bolu / Yedigöller',
+      tarih: '2026-10-31',
+      saat: '06:30',
+      mekan: 'Bolu / Yedigöller (Kalkış: Üniversite Metro İstasyonu)',
+      ozelNot: '* Katılımcıların sabah saat 06:15\'te toplanma yerinde hazır bulunmaları rica olunur.',
+      formAciklamasi: 'Bolu ‘ da sonbaharın renklerini keşfedeceğimiz, huzur dolu tefekkür gezimize tüm hanım gönüllülerimiz davetlidir.🍁✨\n✔️ Gezi ücretimiz: 1000 TL’dir. (Geliri Filistin fonuna aktarılacaktır.)\n✔️ İkramımız: Sabah sandviç ve meyve suyu ikramımız olacaktır.\n📞 İletişim & Kayıt: 0533 560 74 89\n📅 Tarih: 31.10.2026 (Cumartesi)\n⏰ Kalkış: 06.30 — Üniversite Metro İstasyonu\n🚌 Gezimiz günübirliktir.\n📍 Güzergah: Bolu / Yedigöller'
+    });
+    setFormQuestions([
+      'İsim / Soyisim',
+      'Bölüm',
+      'Sınıf',
+      'Telefon Numarası'
+    ]);
+    showToast('Bolu Gezisi şablonu yüklendi! 🍁', 'success');
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // 7. USER ACTION: SUBMIT REQUEST (AFİŞ / FORM / HEPSİ)
   // ─────────────────────────────────────────────────────────────
   const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -758,16 +946,22 @@ export default function App() {
       return;
     }
 
+    const isForm = formData.talepTuru === 'form' || formData.talepTuru === 'hepsi';
+
     setSubmittingRequest(true);
 
     try {
       const newReqRef = rtdbPush(rtdbRef(rtdb, 'requests'));
       const nowTimestamp = Date.now();
+      const generatedId = newReqRef.key || `req_${nowTimestamp}`;
 
-      const reqData = {
+      // Clean payload with NO undefined values so Firebase Realtime Database never throws
+      const reqData: PosterRequest = {
+        id: generatedId,
+        talepTuru: formData.talepTuru,
         etkinlikAdi: formData.etkinlikAdi.trim(),
         ekip: formData.ekip.trim(),
-        altBaslik: formData.altBaslik.trim(),
+        altBaslik: formData.talepTuru === 'form' ? '' : formData.altBaslik.trim(),
         aciklama: formData.aciklama.trim(),
         tarih: formData.tarih,
         saat: formData.saat,
@@ -779,22 +973,33 @@ export default function App() {
         updatedAt: nowTimestamp
       };
 
-      const savePromise = rtdbSet(newReqRef, reqData);
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 3500)
-      );
+      if (isForm) {
+        reqData.formSorulari = formQuestions;
+        reqData.formAciklamasi = formData.formAciklamasi.trim() || formData.aciklama.trim();
+        reqData.formStatus = 'form-bekliyor';
+      }
 
-      await Promise.race([savePromise, timeoutPromise]).catch(() => {
-        const localReq: PosterRequest = {
-          id: newReqRef.key || `req_${nowTimestamp}`,
-          ...reqData
-        };
-        setRequests(prev => [localReq, ...prev]);
-      });
+      // 1. Immediately inject into local state so user gets 0 latency on mobile/desktop
+      setRequests(prev => [reqData, ...prev]);
 
-      showToast('Afiş talebiniz başarıyla oluşturuldu! 🎉', 'success');
+      // 2. Persist to RTDB
+      try {
+        await rtdbSet(newReqRef, reqData);
+      } catch (dbErr) {
+        console.warn("RTDB set background warning:", dbErr);
+      }
+
+      const typeLabel =
+        formData.talepTuru === 'hepsi'
+          ? 'Afiş ve Form talebiniz'
+          : formData.talepTuru === 'form'
+          ? 'Form talebiniz'
+          : 'Afiş talebiniz';
+
+      showToast(`${typeLabel} başarıyla kaydedildi! 🎉`, 'success');
 
       setFormData({
+        talepTuru: 'hepsi',
         etkinlikAdi: '',
         ekip: '',
         altBaslik: '',
@@ -802,14 +1007,18 @@ export default function App() {
         tarih: '',
         saat: '',
         mekan: '',
-        ozelNot: ''
+        ozelNot: '',
+        formAciklamasi: ''
       });
+      setFormQuestions(['İsim / Soyisim', 'Bölüm', 'Sınıf', 'Telefon Numarası']);
 
-      setActiveTab('requests');
+      // Reset filters and navigate to list
+      setTypeFilter('all');
+      setActiveTab(currentUser.role === 'user' ? 'requests' : 'all');
     } catch (err: any) {
       console.error("Submit request error:", err);
-      showToast('Afiş talebiniz kaydedildi!', 'success');
-      setActiveTab('requests');
+      showToast('Talebiniz kaydedildi!', 'success');
+      setActiveTab(currentUser.role === 'user' ? 'requests' : 'all');
     } finally {
       setSubmittingRequest(false);
     }
@@ -821,9 +1030,22 @@ export default function App() {
   const filteredRequests = useMemo(() => {
     let list = [...requests];
 
+    // Request Type filter: 'all' | 'afis' | 'form' | 'hepsi'
+    if (typeFilter !== 'all') {
+      if (typeFilter === 'afis') {
+        list = list.filter(r => (r.talepTuru || 'afis') === 'afis');
+      } else if (typeFilter === 'form') {
+        list = list.filter(r => r.talepTuru === 'form');
+      } else if (typeFilter === 'hepsi') {
+        list = list.filter(r => r.talepTuru === 'hepsi');
+      }
+    } else if (activeTab === 'forms') {
+      list = list.filter(r => r.talepTuru === 'form' || r.talepTuru === 'hepsi');
+    }
+
     if (activeTab === 'changed') {
       list = list.filter(r => r.hasUserChanges && !r.adminAcknowledgedChange);
-    } else if (currentUser?.role === 'admin' && activeTab !== 'all' && activeTab !== 'users') {
+    } else if (isAdmin && activeTab !== 'all' && activeTab !== 'users' && activeTab !== 'forms') {
       list = list.filter(r => r.status === activeTab);
     }
 
@@ -835,7 +1057,8 @@ export default function App() {
           (r.createdBy?.name || '').toLowerCase().includes(q) ||
           (r.ekip || '').toLowerCase().includes(q) ||
           (r.mekan || '').toLowerCase().includes(q) ||
-          (r.userChangesNote || '').toLowerCase().includes(q)
+          (r.userChangesNote || '').toLowerCase().includes(q) ||
+          (r.formLink || '').toLowerCase().includes(q)
       );
     }
 
@@ -852,7 +1075,7 @@ export default function App() {
     });
 
     return list;
-  }, [requests, currentUser, activeTab, searchQuery, sortBy, sortOrder]);
+  }, [requests, currentUser, activeTab, typeFilter, searchQuery, sortBy, sortOrder, isAdmin]);
 
   const stats = useMemo(() => {
     return {
@@ -861,9 +1084,101 @@ export default function App() {
       tasarimda: requests.filter(r => r.status === 'tasarimda').length,
       merkez: requests.filter(r => r.status === 'merkez-onayinda').length,
       yayinlandi: requests.filter(r => r.status === 'yayinlandi').length,
-      changed: requests.filter(r => r.hasUserChanges && !r.adminAcknowledgedChange).length
+      changed: requests.filter(r => r.hasUserChanges && !r.adminAcknowledgedChange).length,
+      formsTotal: requests.filter(r => r.talepTuru === 'form' || r.talepTuru === 'hepsi').length,
+      formsReady: requests.filter(r => (r.talepTuru === 'form' || r.talepTuru === 'hepsi') && Boolean(r.formLink)).length,
+      formsWaiting: requests.filter(r => (r.talepTuru === 'form' || r.talepTuru === 'hepsi') && !r.formLink).length
     };
   }, [requests]);
+
+  const typeCounts = useMemo(() => {
+    return {
+      all: requests.length,
+      afis: requests.filter(r => (r.talepTuru || 'afis') === 'afis').length,
+      form: requests.filter(r => r.talepTuru === 'form').length,
+      hepsi: requests.filter(r => r.talepTuru === 'hepsi').length
+    };
+  }, [requests]);
+
+  const getRoleDetails = (role?: UserRole) => {
+    switch (role) {
+      case 'admin_afis':
+        return {
+          title: '🎨 Afiş Yöneticisi',
+          subtitle: 'Afiş & Tasarım Paneli',
+          badgeBg: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+          short: 'Afiş Admin'
+        };
+      case 'admin_form':
+        return {
+          title: '📝 Form Yöneticisi (Adminokur)',
+          subtitle: 'Google Form Yönetim Paneli',
+          badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+          short: 'Adminokur'
+        };
+      case 'admin':
+        return {
+          title: '👑 Genel Yönetici',
+          subtitle: 'Tüm Yetkiler Paneli',
+          badgeBg: 'bg-violet-50 text-violet-700 border-violet-200',
+          short: 'Genel Admin'
+        };
+      default:
+        return {
+          title: '👤 Talep Sahibi',
+          subtitle: 'Etkinlik Talep Paneli',
+          badgeBg: 'bg-slate-100 text-slate-700 border-slate-200',
+          short: 'Kullanıcı'
+        };
+    }
+  };
+
+  const handleQuickLogin = (uname: string, pass: string) => {
+    setLoginUsername(uname);
+    setLoginPassword(pass);
+    // Instant login trigger
+    setTimeout(() => {
+      let matchedUser: AppUser | null = null;
+      if (uname === 'zeynep') {
+        matchedUser = {
+          uid: 'admin-afis-zeynep',
+          name: 'Zeynep Tatar (Afiş Yöneticisi)',
+          username: uname,
+          role: 'admin_afis',
+          createdAt: Date.now()
+        };
+      } else if (uname === 'adminokur') {
+        matchedUser = {
+          uid: 'admin-form-okur',
+          name: 'Adminokur (Form Yöneticisi)',
+          username: uname,
+          role: 'admin_form',
+          createdAt: Date.now()
+        };
+      } else if (uname === 'admin') {
+        matchedUser = {
+          uid: 'admin-genel',
+          name: 'Genel Sistem Yöneticisi',
+          username: uname,
+          role: 'admin',
+          createdAt: Date.now()
+        };
+      } else if (uname === 'ahmet') {
+        matchedUser = {
+          uid: 'user-demo-1',
+          name: 'Ahmet Yılmaz (Gönüllü)',
+          username: uname,
+          role: 'user',
+          createdAt: Date.now()
+        };
+      }
+      if (matchedUser) {
+        setCurrentUser(matchedUser);
+        setActiveTab(matchedUser.role === 'user' ? 'requests' : 'all');
+        showToast(`Hızlı giriş yapıldı: ${matchedUser.name}! 👋`, 'success');
+      }
+    }, 50);
+  };
 
   const formatDateTime = (val: any) => {
     if (!val) return '—';
@@ -942,7 +1257,7 @@ export default function App() {
           <div className="w-14 h-14 mx-auto mb-4 bg-gradient-to-tr from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-md shadow-violet-200 animate-pulse">
             🎨
           </div>
-          <h2 className="text-base font-bold text-slate-800 mb-1">Afiş Portalı</h2>
+          <h2 className="text-base font-bold text-slate-800 mb-1">Afiş &amp; Form Portalı</h2>
           <p className="text-xs text-slate-500 mb-6">Yükleniyor, lütfen bekleyin…</p>
 
           <button
@@ -969,13 +1284,69 @@ export default function App() {
               🎨
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-black text-slate-800 leading-tight">Afiş Portalı</h1>
-              <p className="text-xs text-slate-500 font-medium">Etkinlik Afiş Yönetim Sistemi</p>
+              <h1 className="text-lg sm:text-xl font-black text-slate-800 leading-tight">Afiş &amp; Form Portalı</h1>
+              <p className="text-xs text-slate-500 font-medium">Etkinlik Afiş ve Google Form Yönetim Sistemi</p>
             </div>
           </div>
 
           <h2 className="text-xl sm:text-2xl font-black text-slate-800 mb-1">Giriş Yapın</h2>
-          <p className="text-xs sm:text-sm text-slate-500 mb-6">Kullanıcı adı ve şifrenizle devam edin.</p>
+          <p className="text-xs sm:text-sm text-slate-500 mb-5">Kullanıcı adı ve şifrenizle devam edin.</p>
+
+          {/* Quick Demo Switcher Buttons */}
+          <div className="mb-5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
+            <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+              ⚡ Hızlı Rol Girişi (1 Tıkla Dene):
+            </span>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('zeynep', '123456')}
+                className="p-2 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-xl font-bold flex items-center gap-1.5 transition-all text-left shadow-xs active:scale-95"
+              >
+                <span className="text-base">🎨</span>
+                <div className="min-w-0">
+                  <div className="truncate font-black text-[11px]">Afiş Yöneticisi</div>
+                  <div className="text-[10px] text-indigo-500 truncate">@zeynep</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('adminokur', '123456')}
+                className="p-2 bg-white hover:bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl font-bold flex items-center gap-1.5 transition-all text-left shadow-xs active:scale-95"
+              >
+                <span className="text-base">📝</span>
+                <div className="min-w-0">
+                  <div className="truncate font-black text-[11px]">Adminokur</div>
+                  <div className="text-[10px] text-emerald-600 truncate">Form Yöneticisi</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('admin', '123456')}
+                className="p-2 bg-white hover:bg-violet-50 border border-violet-200 text-violet-900 rounded-xl font-bold flex items-center gap-1.5 transition-all text-left shadow-xs active:scale-95"
+              >
+                <span className="text-base">👑</span>
+                <div className="min-w-0">
+                  <div className="truncate font-black text-[11px]">Genel Yönetici</div>
+                  <div className="text-[10px] text-violet-500 truncate">@admin</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('ahmet', '123456')}
+                className="p-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 rounded-xl font-bold flex items-center gap-1.5 transition-all text-left shadow-xs active:scale-95"
+              >
+                <span className="text-base">👤</span>
+                <div className="min-w-0">
+                  <div className="truncate font-black text-[11px]">Talep Sahibi</div>
+                  <div className="text-[10px] text-slate-500 truncate">@ahmet (Gönüllü)</div>
+                </div>
+              </button>
+            </div>
+          </div>
 
           {authError && (
             <div className="mb-5 p-3.5 bg-red-50 border border-red-200/80 rounded-2xl flex items-start gap-2.5 text-red-700 text-xs font-medium">
@@ -1052,7 +1423,7 @@ export default function App() {
                 <span>🔒</span> Yetkili Giriş Portalı
               </p>
               <p className="text-[11px] text-slate-500 mt-1">
-                Kullanıcı adı ve şifreniz yönetici tarafından tanımlanır. Hesabınız yoksa yöneticinizle iletişime geçiniz.
+                Afiş Yöneticisi, Form Yöneticisi (Adminokur) veya Talep Sahibi hesaplarıyla giriş yapabilirsiniz.
               </p>
             </div>
           </div>
@@ -1074,6 +1445,8 @@ export default function App() {
   // ─────────────────────────────────────────────────────────────
   // RENDER: MAIN APPLICATION (RESPONSIVE FOR MOBILE, TABLET & DESKTOP)
   // ─────────────────────────────────────────────────────────────
+  const roleInfo = getRoleDetails(currentUser.role);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row text-slate-800 font-sans">
       {/* ════ MOBILE DRAWER BACKDROP ════ */}
@@ -1097,9 +1470,9 @@ export default function App() {
               🎨
             </div>
             <div>
-              <h2 className="text-sm font-black text-slate-900 leading-tight">Afiş Portalı</h2>
-              <span className="text-[11px] font-semibold text-violet-600">
-                {currentUser.role === 'admin' ? '👑 Admin Paneli' : '👤 Kullanıcı Paneli'}
+              <h2 className="text-sm font-black text-slate-900 leading-tight">Afiş &amp; Form Portalı</h2>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border mt-0.5 inline-block ${roleInfo.badgeBg}`}>
+                {roleInfo.short}
               </span>
             </div>
           </div>
@@ -1116,10 +1489,10 @@ export default function App() {
 
         {/* Navigation Links */}
         <div className="flex-1 overflow-y-auto p-3 space-y-1">
-          {currentUser.role === 'admin' ? (
+          {isAdmin ? (
             <>
               <div className="px-3 pt-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                Talepler
+                Talepler &amp; Formlar
               </div>
 
               <button
@@ -1138,6 +1511,35 @@ export default function App() {
                   {stats.total}
                 </span>
               </button>
+
+              {/* DEDICATED FORM REQUESTS TAB (CRITICAL FOR ADMINOKUR) */}
+              <button
+                onClick={() => handleSelectTab('forms')}
+                className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  activeTab === 'forms'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">📝</span>
+                  <span>Form Talepleri</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {stats.formsWaiting > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[9px] font-bold animate-pulse">
+                      {stats.formsWaiting} link bekliyor
+                    </span>
+                  )}
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold">
+                    {stats.formsTotal}
+                  </span>
+                </div>
+              </button>
+
+              <div className="px-3 pt-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                Afiş Aşamaları
+              </div>
 
               <button
                 onClick={() => handleSelectTab('talep-alindi')}
@@ -1232,26 +1634,30 @@ export default function App() {
                 )}
               </button>
 
-              <div className="px-3 pt-5 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                Yönetim &amp; Ekip
-              </div>
+              {currentUser.role === 'admin' && (
+                <>
+                  <div className="px-3 pt-5 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                    Yönetim &amp; Ekip
+                  </div>
 
-              <button
-                onClick={() => handleSelectTab('users')}
-                className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  activeTab === 'users'
-                    ? 'bg-violet-50 text-violet-700 border border-violet-100 font-bold'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">👥</span>
-                  <span>Kullanıcı Yönetimi</span>
-                </div>
-                <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold">
-                  {usersList.length}
-                </span>
-              </button>
+                  <button
+                    onClick={() => handleSelectTab('users')}
+                    className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                      activeTab === 'users'
+                        ? 'bg-violet-50 text-violet-700 border border-violet-100 font-bold'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-base">👥</span>
+                      <span>Kullanıcı Yönetimi</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold">
+                      {usersList.length}
+                    </span>
+                  </button>
+                </>
+              )}
             </>
           ) : (
             <>
@@ -1285,7 +1691,7 @@ export default function App() {
                 }`}
               >
                 <Plus size={16} />
-                <span>Yeni Afiş Talebi</span>
+                <span>Yeni Afiş &amp; Form Talebi</span>
               </button>
             </>
           )}
@@ -1315,6 +1721,7 @@ export default function App() {
 
       {/* ════ MAIN WRAPPER ════ */}
       <div className="flex-1 flex flex-col min-h-screen w-full lg:ml-64 pb-32 lg:pb-8">
+
         {/* Responsive Mobile Topbar (< 1024px) */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3.5 py-2.5 pt-safe flex items-center justify-between lg:hidden shadow-xs">
           <div className="flex items-center gap-2">
@@ -1423,8 +1830,8 @@ export default function App() {
           </div>
         </header>
 
-        {/* Main Content Body */}
-        <main className="p-4 sm:p-6 lg:p-8 flex-1 w-full max-w-7xl mx-auto">
+        {/* Main Content Body (with safe bottom spacing for mobile bottom nav) */}
+        <main className="p-3.5 sm:p-6 lg:p-8 pb-28 lg:pb-8 flex-1 w-full max-w-7xl mx-auto">
           {/* USER MANAGEMENT TAB (ADMIN) */}
           {currentUser.role === 'admin' && activeTab === 'users' ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1501,11 +1908,13 @@ export default function App() {
                     </label>
                     <select
                       value={newRole}
-                      onChange={e => setNewRole(e.target.value as 'user' | 'admin')}
+                      onChange={e => setNewRole(e.target.value as UserRole)}
                       className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
                     >
-                      <option value="user">👤 Kullanıcı (Afiş Talebi Oluşturur)</option>
-                      <option value="admin">👑 Admin (Talepleri ve Durumları Yönetir)</option>
+                      <option value="user">👤 Kullanıcı (Afiş &amp; Form Talebi Oluşturur)</option>
+                      <option value="admin_afis">🎨 Afiş Yöneticisi (Tasarım ve Afiş Onayı)</option>
+                      <option value="admin_form">📝 Form Yöneticisi (Adminokur - Google Form Linkleri)</option>
+                      <option value="admin">👑 Genel Yönetici (Tüm Yetkiler)</option>
                     </select>
                   </div>
 
@@ -1535,33 +1944,30 @@ export default function App() {
                       Henüz kullanıcı bulunmuyor.
                     </div>
                   ) : (
-                    usersList.map((u, i) => (
-                      <div key={u.uid || i} className="p-3.5 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
-                            {getInitials(u.name)}
+                    usersList.map((u, i) => {
+                      const uRole = getRoleDetails(u.role);
+                      return (
+                        <div key={u.uid || i} className="p-3.5 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
+                              {getInitials(u.name)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-xs text-slate-800 truncate">{u.name}</p>
+                              <p className="text-[11px] font-mono text-slate-400 truncate">@{u.username}</p>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-xs text-slate-800 truncate">{u.name}</p>
-                            <p className="text-[11px] font-mono text-slate-400 truncate">@{u.username}</p>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] border ${uRole.badgeBg}`}>
+                              {uRole.short}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {formatDateOnly(u.createdAt)}
+                            </span>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          <span
-                            className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                              u.role === 'admin'
-                                ? 'bg-violet-50 text-violet-700 border border-violet-200'
-                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            }`}
-                          >
-                            {u.role === 'admin' ? '👑 Admin' : '👤 Kullanıcı'}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            {formatDateOnly(u.createdAt)}
-                          </span>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
@@ -1584,31 +1990,28 @@ export default function App() {
                           </td>
                         </tr>
                       ) : (
-                        usersList.map((u, i) => (
-                          <tr key={u.uid || i} className="hover:bg-slate-50/60 transition-colors">
-                            <td className="py-3 px-4 flex items-center gap-2.5">
-                              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
-                                {getInitials(u.name)}
-                              </div>
-                              <span className="font-semibold text-slate-800 truncate max-w-[140px] sm:max-w-none">{u.name}</span>
-                            </td>
-                            <td className="py-3 px-4 font-mono font-medium text-slate-600">@{u.username}</td>
-                            <td className="py-3 px-4">
-                              <span
-                                className={`px-2 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap ${
-                                  u.role === 'admin'
-                                    ? 'bg-violet-50 text-violet-700 border border-violet-200'
-                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                }`}
-                              >
-                                {u.role === 'admin' ? '👑 Admin' : '👤 Kullanıcı'}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-right text-slate-500 font-medium whitespace-nowrap">
-                              {formatDateTime(u.createdAt)}
-                            </td>
-                          </tr>
-                        ))
+                        usersList.map((u, i) => {
+                          const uRole = getRoleDetails(u.role);
+                          return (
+                            <tr key={u.uid || i} className="hover:bg-slate-50/60 transition-colors">
+                              <td className="py-3 px-4 flex items-center gap-2.5">
+                                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                                  {getInitials(u.name)}
+                                </div>
+                                <span className="font-semibold text-slate-800 truncate max-w-[140px] sm:max-w-none">{u.name}</span>
+                              </td>
+                              <td className="py-3 px-4 font-mono font-medium text-slate-600">@{u.username}</td>
+                              <td className="py-3 px-4">
+                                <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] border whitespace-nowrap ${uRole.badgeBg}`}>
+                                  {uRole.title}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-right text-slate-500 font-medium whitespace-nowrap">
+                                {formatDateTime(u.createdAt)}
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -1620,16 +2023,95 @@ export default function App() {
             <div className="max-w-5xl mx-auto">
               <div className="bg-white border border-slate-200/80 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
                 <div className="bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 p-5 sm:p-8 text-white">
-                  <div className="flex items-center gap-2.5 sm:gap-3 mb-1.5 sm:mb-2">
-                    <span className="text-2xl sm:text-3xl">🎨</span>
-                    <h2 className="text-lg sm:text-2xl font-black">Yeni Afiş Talebi</h2>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2.5 sm:gap-3 mb-1.5 sm:mb-2">
+                        <span className="text-2xl sm:text-3xl">✨</span>
+                        <h2 className="text-lg sm:text-2xl font-black">Yeni Etkinlik Talebi</h2>
+                      </div>
+                      <p className="text-xs sm:text-sm text-violet-100 max-w-2xl">
+                        Afiş tasarımı, Google kayıt formu veya her ikisini birden talep edebilirsiniz.
+                      </p>
+                    </div>
+
+                    {/* Quick 1-Click Bolu Trip Template Button */}
+                    <button
+                      type="button"
+                      onClick={handleLoadBoluTemplate}
+                      className="px-4 py-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-white border border-white/30 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 backdrop-blur-xs shadow-xs"
+                      title="Kullanıcı briefindeki Bolu Gezisi metinlerini tek tıkla doldurur"
+                    >
+                      <Sparkles size={15} className="text-amber-300" />
+                      <span>🍁 Bolu Gezisi Şablonunu Doldur</span>
+                    </button>
                   </div>
-                  <p className="text-xs sm:text-sm text-violet-100 max-w-2xl">
-                    Etkinlik bilgilerinizi doldurun. Talebiniz ilk olarak <strong>Talep Alındı</strong> aşamasında oluşturulacaktır.
-                  </p>
                 </div>
 
                 <div className="p-3.5 sm:p-6 lg:p-8">
+                  {/* Talep Türü Seçici (Afiş / Form / Hepsi) */}
+                  <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                    <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                      <Layers size={14} className="text-violet-600" />
+                      <span>Talep Türünü Seçin <span className="text-red-500">*</span></span>
+                    </label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, talepTuru: 'hepsi' })}
+                        className={`min-h-[52px] p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${
+                          formData.talepTuru === 'hepsi'
+                            ? 'bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-200'
+                            : 'bg-white hover:bg-slate-100/80 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <span className="text-xl">✨</span>
+                        <div>
+                          <p className="text-xs font-black leading-tight">Afiş + Form Talebi</p>
+                          <p className={`text-[10px] mt-0.5 ${formData.talepTuru === 'hepsi' ? 'text-violet-100' : 'text-slate-400'}`}>
+                            Hem afiş hem Google formu
+                          </p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, talepTuru: 'afis' })}
+                        className={`min-h-[52px] p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${
+                          formData.talepTuru === 'afis'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
+                            : 'bg-white hover:bg-slate-100/80 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <span className="text-xl">🎨</span>
+                        <div>
+                          <p className="text-xs font-black leading-tight">Sadece Afiş Talebi</p>
+                          <p className={`text-[10px] mt-0.5 ${formData.talepTuru === 'afis' ? 'text-indigo-100' : 'text-slate-400'}`}>
+                            Yalnızca görsel afiş tasarımı
+                          </p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, talepTuru: 'form' })}
+                        className={`min-h-[52px] p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${
+                          formData.talepTuru === 'form'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-200'
+                            : 'bg-white hover:bg-slate-100/80 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <span className="text-xl">📝</span>
+                        <div>
+                          <p className="text-xs font-black leading-tight">Sadece Form Talebi</p>
+                          <p className={`text-[10px] mt-0.5 ${formData.talepTuru === 'form' ? 'text-emerald-100' : 'text-slate-400'}`}>
+                            Google kayıt linki oluşturma
+                          </p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Mobile Segmented Control (Form vs Preview) */}
                   <div className="lg:hidden flex items-center bg-slate-100 p-1 rounded-2xl mb-4 border border-slate-200/60">
                     <button
@@ -1649,7 +2131,7 @@ export default function App() {
                       }`}
                     >
                       <Eye size={14} />
-                      <span>Afiş Ön İzleme</span>
+                      <span>Canlı Ön İzleme</span>
                     </button>
                   </div>
 
@@ -1657,6 +2139,7 @@ export default function App() {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
                       {/* Left Form Fields */}
                       <div className={`space-y-4 sm:space-y-6 ${mobileFormTab === 'preview' ? 'hidden lg:block' : 'block'}`}>
+                        {/* Event Organization Info */}
                         <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 sm:p-5">
                           <div className="flex items-center gap-2 mb-3.5 pb-2.5 border-b border-slate-200/60">
                             <span className="text-lg">🎪</span>
@@ -1679,7 +2162,7 @@ export default function App() {
                                 maxLength={120}
                                 value={formData.etkinlikAdi}
                                 onChange={e => setFormData({ ...formData, etkinlikAdi: e.target.value })}
-                                placeholder="Örn: 🚀 ATOM Tanışma Toplantısı"
+                                placeholder="Örn: 🍁 Bolu Sonbahar Tefekkür Gezisi"
                                 className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
                               />
                             </div>
@@ -1694,58 +2177,65 @@ export default function App() {
                                 maxLength={100}
                                 value={formData.ekip}
                                 onChange={e => setFormData({ ...formData, ekip: e.target.value })}
-                                placeholder="Örn: ATOM Ekibi / Sosyal Etkinlik Birimi"
+                                placeholder="Örn: Hanım Gönüllüler Birimi"
                                 className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
                               />
                             </div>
                           </div>
                         </div>
 
+                        {/* Slogan & Description (Poster / Form Details) */}
                         <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 sm:p-5">
                           <div className="flex items-center gap-2 mb-3.5 pb-2.5 border-b border-slate-200/60">
                             <span className="text-lg">✍️</span>
                             <div>
                               <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                                Slogan &amp; Açıklama
+                                {formData.talepTuru === 'form' ? 'Etkinlik Açıklaması' : 'Slogan & Açıklama'}
                               </h4>
-                              <p className="text-[11px] text-slate-400">Afişin ana mesajı</p>
+                              <p className="text-[11px] text-slate-400">
+                                {formData.talepTuru === 'form' ? 'Etkinliğin içeriği ve detayları' : 'Etkinliğin ana mesajı ve içeriği'}
+                              </p>
                             </div>
                           </div>
 
                           <div className="space-y-3.5">
-                            <div>
-                              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
-                                Alt Başlık / Slogan
-                              </label>
-                              <input
-                                type="text"
-                                maxLength={160}
-                                value={formData.altBaslik}
-                                onChange={e => setFormData({ ...formData, altBaslik: e.target.value })}
-                                placeholder="Örn: Geleceği birlikte inşa ediyoruz!"
-                                className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
-                              />
-                            </div>
+                            {/* Hide Slogan if Sadece Form Talebi is selected */}
+                            {formData.talepTuru !== 'form' && (
+                              <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
+                                  Alt Başlık / Slogan
+                                </label>
+                                <input
+                                  type="text"
+                                  maxLength={160}
+                                  value={formData.altBaslik}
+                                  onChange={e => setFormData({ ...formData, altBaslik: e.target.value })}
+                                  placeholder="Örn: Sonbaharın renklerini keşfedeceğimiz huzur dolu gezi"
+                                  className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
+                                />
+                              </div>
+                            )}
 
                             <div>
                               <div className="flex items-center justify-between mb-1">
                                 <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
                                   Etkinlik Açıklaması
                                 </label>
-                                <span className="text-[10px] text-slate-400">{formData.aciklama.length}/600</span>
+                                <span className="text-[10px] text-slate-400">{formData.aciklama.length}/800</span>
                               </div>
                               <textarea
-                                rows={3}
-                                maxLength={600}
+                                rows={4}
+                                maxLength={800}
                                 value={formData.aciklama}
                                 onChange={e => setFormData({ ...formData, aciklama: e.target.value })}
-                                placeholder="Etkinliğin içeriği hakkında özet bilgi…"
-                                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
+                                placeholder="Etkinliğin içeriği, gezi ücreti, ikram ve iletişim bilgileri…"
+                                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 leading-relaxed font-sans"
                               />
                             </div>
                           </div>
                         </div>
 
+                        {/* Date, Time & Logistics */}
                         <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 sm:p-5">
                           <div className="flex items-center gap-2 mb-3.5 pb-2.5 border-b border-slate-200/60">
                             <span className="text-lg">📅</span>
@@ -1753,7 +2243,7 @@ export default function App() {
                               <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                                 Tarih, Saat &amp; Yer
                               </h4>
-                              <p className="text-[11px] text-slate-400">Lojistik bilgileri</p>
+                              <p className="text-[11px] text-slate-400">Lojistik ve buluşma bilgileri</p>
                             </div>
                           </div>
 
@@ -1798,7 +2288,7 @@ export default function App() {
                                     Hatırlatma: Etkinliğe {diffDays <= 0 ? '1 günden az süre kaldı' : `${diffDays} gün kaldı`}!
                                   </strong>
                                   <span className="text-[11px] text-amber-800 leading-relaxed block mt-0.5">
-                                    Afiş taleplerinin en geç etkinlik tarihinden <strong>7 gün önce</strong> yapılması önerilir. Talebinizi oluşturabilirsiniz; afiş tasarım ve onay sürecinin zamanında yetişebilmesi için lütfen aciliyetini aşağıdaki özel not alanında belirtiniz.
+                                    Taleplerin etkinlik tarihinden en geç <strong>7 gün önce</strong> yapılması önerilir. Sürecin zamanında yetişebilmesi için lütfen aciliyetini not alanında belirtiniz.
                                   </span>
                                 </div>
                               </div>
@@ -1807,27 +2297,129 @@ export default function App() {
 
                           <div>
                             <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
-                              Mekan / Salon <span className="text-red-500">*</span>
+                              Mekan / Güzergah <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="text"
                               required
                               value={formData.mekan}
                               onChange={e => setFormData({ ...formData, mekan: e.target.value })}
-                              placeholder="Örn: Gençlik Ofisi Konferans Salonu"
+                              placeholder="Örn: Bolu / Yedigöller (Kalkış: Üniversite Metro İstasyonu)"
                               className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
                             />
                           </div>
                         </div>
 
+                        {/* DEDICATED GOOGLE FORM SECTION (WHEN FORM OR HEPSI SELECTED) */}
+                        {(formData.talepTuru === 'form' || formData.talepTuru === 'hepsi') && (
+                          <div className="bg-emerald-50/60 border-2 border-emerald-300 rounded-2xl p-4 sm:p-5 space-y-4">
+                            <div className="flex items-center gap-2 pb-2.5 border-b border-emerald-200">
+                              <span className="text-xl">📝</span>
+                              <div>
+                                <h4 className="text-xs font-black text-emerald-900 uppercase tracking-wider">
+                                  Google Form / Katılım Formu Bilgileri
+                                </h4>
+                                <p className="text-[11px] text-emerald-700">
+                                  Form Yöneticisi (Adminokur) bu bilgilere göre Google Form linkini oluşturacaktır.
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Questions Editor */}
+                            <div>
+                              <label className="block text-xs font-bold text-emerald-900 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                                <span className="flex items-center gap-1.5">
+                                  <ListChecks size={14} className="text-emerald-700" />
+                                  Formda Sorulacak Sorular ({formQuestions.length})
+                                </span>
+                                <span className="text-[10px] text-emerald-700 font-normal">Soru ekleyip çıkarabilirsiniz</span>
+                              </label>
+
+                              {/* Questions tags */}
+                              <div className="flex flex-wrap gap-1.5 mb-2.5 p-2.5 bg-white rounded-xl border border-emerald-200 min-h-[48px] items-center">
+                                {formQuestions.map((q, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-900 text-xs font-semibold rounded-lg border border-emerald-200/80"
+                                  >
+                                    <span className="text-[10px] font-bold text-emerald-700">#{idx + 1}</span>
+                                    <span>{q}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setFormQuestions(prev => prev.filter((_, i) => i !== idx))}
+                                      className="text-emerald-600 hover:text-red-600 p-0.5 rounded transition-colors"
+                                      title="Soruyu sil"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  </span>
+                                ))}
+                                {formQuestions.length === 0 && (
+                                  <span className="text-xs text-slate-400 italic">Henüz soru eklenmedi.</span>
+                                )}
+                              </div>
+
+                              {/* Add question input */}
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={newQuestionInput}
+                                  onChange={e => setNewQuestionInput(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      if (newQuestionInput.trim()) {
+                                        setFormQuestions([...formQuestions, newQuestionInput.trim()]);
+                                        setNewQuestionInput('');
+                                      }
+                                    }
+                                  }}
+                                  placeholder="Yeni soru yazın (Örn: Kan Grubu, Oturulan İlçe)…"
+                                  className="flex-1 min-h-[42px] px-3.5 py-2 bg-white border border-emerald-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (newQuestionInput.trim()) {
+                                      setFormQuestions([...formQuestions, newQuestionInput.trim()]);
+                                      setNewQuestionInput('');
+                                    }
+                                  }}
+                                  className="min-h-[42px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1 shrink-0"
+                                >
+                                  <Plus size={14} /> Ekle
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Form Description & Logistics text */}
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-bold text-emerald-900 uppercase tracking-wider">
+                                  Form Üst Açıklaması &amp; Detaylar
+                                </label>
+                                <span className="text-[10px] text-emerald-700">Ücret, ikram, kalkış bilgileri</span>
+                              </div>
+                              <textarea
+                                rows={4}
+                                value={formData.formAciklamasi}
+                                onChange={e => setFormData({ ...formData, formAciklamasi: e.target.value })}
+                                placeholder="Örn: Gezi ücretimiz 1000 TL'dir (Geliri Filistin fonuna aktarılacaktır). Sabah sandviç ve meyve suyu ikramı yapılacaktır…"
+                                className="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 font-sans leading-relaxed"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Special Note */}
                         <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 sm:p-5">
                           <div className="flex items-center gap-2 mb-3">
-                            <span className="text-lg">📝</span>
+                            <span className="text-lg">📌</span>
                             <div>
                               <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                                Özel Not / Uyarı
+                                Özel Not / Hatırlatma
                               </h4>
-                              <p className="text-[11px] text-slate-400">Afişin altına düşülecek küçük not</p>
+                              <p className="text-[11px] text-slate-400">Yöneticilere veya katılımcılara ek not</p>
                             </div>
                           </div>
 
@@ -1841,6 +2433,7 @@ export default function App() {
                           />
                         </div>
 
+                        {/* Submit Actions */}
                         <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-2">
                           <button
                             type="button"
@@ -1855,94 +2448,156 @@ export default function App() {
                             className="w-full sm:w-auto min-h-[44px] px-8 py-3 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl shadow-md shadow-violet-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50 order-1 sm:order-2 active:scale-[0.99]"
                           >
                             <Send size={15} />
-                            <span>{submittingRequest ? 'İletiliyor…' : '📤 Talebi Gönder'}</span>
+                            <span>
+                              {submittingRequest
+                                ? 'İletiliyor…'
+                                : formData.talepTuru === 'hepsi'
+                                ? '📤 Afiş ve Form Talebini Gönder'
+                                : formData.talepTuru === 'form'
+                                ? '📤 Form Talebini Gönder'
+                                : '📤 Afiş Talebini Gönder'}
+                            </span>
                           </button>
                         </div>
                       </div>
 
-                      {/* Right Live Poster Preview */}
-                      <div className={`lg:sticky lg:top-24 mt-2 lg:mt-0 ${mobileFormTab === 'form' ? 'hidden lg:block' : 'block'}`}>
-                        <div className="bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 border border-violet-100 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-md">
-                          <div className="flex items-center justify-between mb-3 sm:mb-4">
-                            <span className="text-xs font-black uppercase tracking-wider text-violet-800 flex items-center gap-1.5">
-                              <Eye size={14} /> Afiş Canlı Ön İzlemesi
-                            </span>
-                            <span className="text-[10px] font-bold text-violet-600 bg-violet-100/80 px-2 py-0.5 rounded-full">
-                              Canlı Görünüm
-                            </span>
-                          </div>
+                      {/* Right Live Dual Preview (Poster & Google Form) */}
+                      <div className={`lg:sticky lg:top-24 mt-2 lg:mt-0 space-y-4 ${mobileFormTab === 'form' ? 'hidden lg:block' : 'block'}`}>
+                        {/* 1. Poster Preview (if afis or hepsi) */}
+                        {(formData.talepTuru === 'afis' || formData.talepTuru === 'hepsi') && (
+                          <div className="bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 border border-violet-100 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-xs font-black uppercase tracking-wider text-violet-800 flex items-center gap-1.5">
+                                <Eye size={14} /> 🎨 Afiş Canlı Ön İzlemesi
+                              </span>
+                              <span className="text-[10px] font-bold text-violet-600 bg-violet-100/80 px-2 py-0.5 rounded-full">
+                                Canlı Görünüm
+                              </span>
+                            </div>
 
-                          <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/90 shadow-sm min-h-[280px] sm:min-h-[340px] flex flex-col justify-between">
-                            <div>
-                              {formData.ekip && (
-                                <div className="inline-block px-2.5 py-1 bg-violet-100 text-violet-800 text-[10px] font-extrabold rounded-md uppercase tracking-wider mb-2.5">
-                                  {formData.ekip}
-                                </div>
-                              )}
-
-                              <h3 className="text-base sm:text-xl font-black text-slate-900 leading-snug mb-2">
-                                {formData.etkinlikAdi || (
-                                  <span className="text-slate-300 italic">Etkinlik Adı Buraya Gelecek</span>
+                            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-sm flex flex-col justify-between">
+                              <div>
+                                {formData.ekip && (
+                                  <div className="inline-block px-2.5 py-1 bg-violet-100 text-violet-800 text-[10px] font-extrabold rounded-md uppercase tracking-wider mb-2">
+                                    {formData.ekip}
+                                  </div>
                                 )}
-                              </h3>
 
-                              {formData.altBaslik && (
-                                <p className="text-xs font-semibold text-violet-600 italic mb-2.5">
-                                  {formData.altBaslik}
-                                </p>
-                              )}
+                                <h3 className="text-base sm:text-lg font-black text-slate-900 leading-snug mb-1.5">
+                                  {formData.etkinlikAdi || (
+                                    <span className="text-slate-300 italic">Etkinlik Adı Buraya Gelecek</span>
+                                  )}
+                                </h3>
 
-                              {formData.aciklama && (
-                                <p className="text-xs text-slate-600 leading-relaxed mb-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                  {formData.aciklama}
-                                </p>
-                              )}
-                            </div>
+                                {formData.altBaslik && (
+                                  <p className="text-xs font-semibold text-violet-600 italic mb-2">
+                                    {formData.altBaslik}
+                                  </p>
+                                )}
 
-                            <div className="pt-3 border-t border-slate-100 space-y-2 mt-3">
-                              {(formData.tarih || formData.saat) && (
-                                <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                                  <Calendar size={14} className="text-violet-600 shrink-0" />
-                                  <span>
-                                    {formData.tarih ? formatDateOnly(formData.tarih) : 'Tarih seçilmedi'}
-                                    {formData.saat ? ` · Saat ${formData.saat}` : ''}
-                                  </span>
-                                </div>
-                              )}
+                                {formData.aciklama && (
+                                  <p className="text-xs text-slate-600 leading-relaxed mb-3 bg-slate-50 p-2.5 rounded-xl border border-slate-100 whitespace-pre-line">
+                                    {formData.aciklama}
+                                  </p>
+                                )}
+                              </div>
 
-                              {formData.mekan && (
-                                <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
-                                  <MapPin size={14} className="text-violet-600 shrink-0" />
-                                  <span>{formData.mekan}</span>
-                                </div>
-                              )}
+                              <div className="pt-2.5 border-t border-slate-100 space-y-1.5 text-xs">
+                                {(formData.tarih || formData.saat) && (
+                                  <div className="flex items-center gap-2 font-bold text-slate-800">
+                                    <Calendar size={13} className="text-violet-600 shrink-0" />
+                                    <span>
+                                      {formData.tarih ? formatDateOnly(formData.tarih) : 'Tarih seçilmedi'}
+                                      {formData.saat ? ` · Saat ${formData.saat}` : ''}
+                                    </span>
+                                  </div>
+                                )}
 
-                              {formData.ozelNot && (
-                                <div className="mt-2.5 pt-2 text-[11px] text-slate-500 italic border-t border-dashed border-slate-200">
-                                  {formData.ozelNot}
-                                </div>
-                              )}
-                            </div>
+                                {formData.mekan && (
+                                  <div className="flex items-center gap-2 font-medium text-slate-700">
+                                    <MapPin size={13} className="text-violet-600 shrink-0" />
+                                    <span>{formData.mekan}</span>
+                                  </div>
+                                )}
 
-                            {/* Mobile Quick Action Buttons on Preview */}
-                            <div className="lg:hidden mt-4 pt-3 border-t border-slate-100 flex flex-col gap-2">
-                              <button
-                                type="submit"
-                                disabled={submittingRequest}
-                                className="w-full min-h-[46px] py-2.5 bg-violet-600 hover:bg-violet-700 active:scale-[0.98] text-white text-xs font-bold rounded-xl shadow-md shadow-violet-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                              >
-                                <Send size={15} />
-                                <span>{submittingRequest ? 'İletiliyor…' : '📤 Talebi Onayla ve Gönder'}</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setMobileFormTab('form')}
-                                className="w-full min-h-[40px] py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
-                              >
-                                ✏️ Bilgileri Düzenle
-                              </button>
+                                {formData.ozelNot && (
+                                  <div className="mt-2 pt-1.5 text-[11px] text-slate-500 italic border-t border-dashed border-slate-200">
+                                    {formData.ozelNot}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
+                        )}
+
+                        {/* 2. Google Form Preview Card (if form or hepsi) */}
+                        {(formData.talepTuru === 'form' || formData.talepTuru === 'hepsi') && (
+                          <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-green-50 border border-emerald-200 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-xs font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                                <FileSpreadsheet size={14} /> 📝 Google Form Taslak Ön İzlemesi
+                              </span>
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                Form Şablonu
+                              </span>
+                            </div>
+
+                            <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-xs space-y-3">
+                              <div className="border-b border-slate-100 pb-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                                  Google Kayıt Formu Başlığı
+                                </span>
+                                <h4 className="text-sm font-black text-slate-900 mt-0.5">
+                                  {formData.etkinlikAdi || 'Etkinlik Kayıt Formu'}
+                                </h4>
+                              </div>
+
+                              {/* Form description summary */}
+                              {formData.formAciklamasi && (
+                                <div className="text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 whitespace-pre-line leading-relaxed max-h-32 overflow-y-auto">
+                                  {formData.formAciklamasi}
+                                </div>
+                              )}
+
+                              {/* Questions list preview */}
+                              <div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+                                  📋 Form Alanları ({formQuestions.length} soru):
+                                </span>
+                                <div className="space-y-1">
+                                  {formQuestions.map((q, i) => (
+                                    <div key={i} className="text-xs text-slate-700 flex items-center gap-2 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100">
+                                      <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                        {i + 1}
+                                      </span>
+                                      <span className="font-medium truncate">{q}</span>
+                                      <span className="text-[10px] text-red-500 ml-auto shrink-0">*Zorunlu</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Mobile Form Submit CTA inside Preview Tab */}
+                        <div className="lg:hidden pt-2 flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSubmitRequest}
+                            disabled={submittingRequest}
+                            className="w-full min-h-[46px] py-2.5 bg-violet-600 hover:bg-violet-700 active:scale-[0.98] text-white text-xs font-bold rounded-xl shadow-md shadow-violet-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                            <Send size={15} />
+                            <span>{submittingRequest ? 'İletiliyor…' : '📤 Talebi Onayla ve Gönder'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMobileFormTab('form')}
+                            className="w-full min-h-[40px] py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+                          >
+                            ✏️ Bilgileri Düzenle
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1954,7 +2609,7 @@ export default function App() {
             /* REQUESTS LIST (RESPONSIVE GRID & CARDS) */
             <div>
               {/* Mobile Horizontal Swipeable Status Pills (< sm) */}
-              {currentUser.role === 'admin' && (
+              {isAdmin && (
                 <div className="sm:hidden no-scrollbar flex items-center gap-2 overflow-x-auto pb-1 mb-3 -mx-4 px-4">
                   <button
                     type="button"
@@ -1968,6 +2623,24 @@ export default function App() {
                     <span>📋 Tümü</span>
                     <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
                       {stats.total}
+                    </span>
+                  </button>
+
+                  {/* Form Requests Pill */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab('forms')}
+                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
+                      activeTab === 'forms'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                        : stats.formsWaiting > 0
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span>📝 Formlar</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'forms' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
+                      {stats.formsTotal}
                     </span>
                   </button>
 
@@ -2052,7 +2725,7 @@ export default function App() {
               )}
 
               {/* Desktop & Tablet Stats Grid (>= sm) */}
-              <div className={`hidden sm:grid ${currentUser.role === 'admin' ? 'sm:grid-cols-3 lg:grid-cols-6' : 'sm:grid-cols-3 lg:grid-cols-5'} gap-2.5 sm:gap-3.5 mb-6 sm:mb-8`}>
+              <div className={`hidden sm:grid ${isAdmin ? 'sm:grid-cols-3 lg:grid-cols-7' : 'sm:grid-cols-2 lg:grid-cols-4'} gap-2.5 sm:gap-3.5 mb-6 sm:mb-8`}>
                 <div
                   onClick={() => handleSelectTab('all')}
                   className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden cursor-pointer transition-all ${
@@ -2063,7 +2736,7 @@ export default function App() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xl sm:text-2xl font-black text-violet-700">{stats.total}</p>
-                      <p className="text-[11px] sm:text-xs font-semibold text-slate-400">Toplam Talep</p>
+                      <p className="text-[11px] sm:text-xs font-semibold text-slate-400">Toplam</p>
                     </div>
                     <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center text-sm sm:text-base">
                       📋
@@ -2071,7 +2744,37 @@ export default function App() {
                   </div>
                 </div>
 
-                {currentUser.role === 'admin' && (
+                {/* Form Requests Card */}
+                <div
+                  onClick={() => handleSelectTab('forms')}
+                  className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all cursor-pointer ${
+                    activeTab === 'forms'
+                      ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/20'
+                      : stats.formsWaiting > 0
+                      ? 'border-emerald-300 hover:border-emerald-400'
+                      : 'border-slate-200/80 hover:border-slate-300'
+                  }`}
+                >
+                  <div className={`absolute top-0 left-0 right-0 h-1 ${stats.formsWaiting > 0 ? 'bg-emerald-500' : 'bg-emerald-400'}`} />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xl sm:text-2xl font-black text-emerald-700">{stats.formsTotal}</p>
+                        {stats.formsWaiting > 0 && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                            {stats.formsWaiting} bekliyor
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] sm:text-xs font-semibold text-slate-500">Form Talebi</p>
+                    </div>
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-sm sm:text-base">
+                      📝
+                    </div>
+                  </div>
+                </div>
+
+                {isAdmin && (
                   <div
                     onClick={() => handleSelectTab('changed')}
                     className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all cursor-pointer ${
@@ -2100,9 +2803,9 @@ export default function App() {
                 )}
 
                 <div
-                  onClick={() => currentUser.role === 'admin' && handleSelectTab('talep-alindi')}
+                  onClick={() => isAdmin && handleSelectTab('talep-alindi')}
                   className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all ${
-                    currentUser.role === 'admin' ? 'cursor-pointer' : ''
+                    isAdmin ? 'cursor-pointer' : ''
                   } ${
                     activeTab === 'talep-alindi' ? 'border-slate-500 ring-2 ring-slate-500/10' : 'border-slate-200/80 hover:border-slate-300'
                   }`}
@@ -2120,9 +2823,9 @@ export default function App() {
                 </div>
 
                 <div
-                  onClick={() => currentUser.role === 'admin' && handleSelectTab('tasarimda')}
+                  onClick={() => isAdmin && handleSelectTab('tasarimda')}
                   className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all ${
-                    currentUser.role === 'admin' ? 'cursor-pointer' : ''
+                    isAdmin ? 'cursor-pointer' : ''
                   } ${
                     activeTab === 'tasarimda' ? 'border-amber-500 ring-2 ring-amber-500/10' : 'border-slate-200/80 hover:border-slate-300'
                   }`}
@@ -2140,9 +2843,9 @@ export default function App() {
                 </div>
 
                 <div
-                  onClick={() => currentUser.role === 'admin' && handleSelectTab('merkez-onayinda')}
+                  onClick={() => isAdmin && handleSelectTab('merkez-onayinda')}
                   className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all ${
-                    currentUser.role === 'admin' ? 'cursor-pointer' : ''
+                    isAdmin ? 'cursor-pointer' : ''
                   } ${
                     activeTab === 'merkez-onayinda' ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-slate-200/80 hover:border-slate-300'
                   }`}
@@ -2160,9 +2863,9 @@ export default function App() {
                 </div>
 
                 <div
-                  onClick={() => currentUser.role === 'admin' && handleSelectTab('yayinlandi')}
+                  onClick={() => isAdmin && handleSelectTab('yayinlandi')}
                   className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all ${
-                    currentUser.role === 'admin' ? 'cursor-pointer' : ''
+                    isAdmin ? 'cursor-pointer' : ''
                   } ${
                     activeTab === 'yayinlandi' ? 'border-emerald-500 ring-2 ring-emerald-500/10' : 'border-slate-200/80 hover:border-slate-300'
                   }`}
@@ -2180,6 +2883,99 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Request Type Selector Filter Bar (Mobile-first Horizontal Scrollable) */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-4 mb-3 sm:mb-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1 sm:mx-0 sm:px-0">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1 hidden sm:inline">
+                      Tür:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTypeFilter('all');
+                      }}
+                      className={`shrink-0 min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                        typeFilter === 'all'
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span>Tüm Talepler</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        typeFilter === 'all' ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {typeCounts.all}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTypeFilter('afis');
+                        if (activeTab === 'forms') {
+                          setActiveTab(isAdmin ? 'all' : 'requests');
+                        }
+                      }}
+                      className={`shrink-0 min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                        typeFilter === 'afis'
+                          ? 'bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-200'
+                          : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/60'
+                      }`}
+                    >
+                      <span>🎨 Sadece Afiş</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        typeFilter === 'afis' ? 'bg-white/25 text-white' : 'bg-indigo-100 text-indigo-800'
+                      }`}>
+                        {typeCounts.afis}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTypeFilter('form');
+                      }}
+                      className={`shrink-0 min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                        typeFilter === 'form'
+                          ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-200'
+                          : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/60'
+                      }`}
+                    >
+                      <span>📝 Sadece Form</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        typeFilter === 'form' ? 'bg-white/25 text-white' : 'bg-emerald-100 text-emerald-900'
+                      }`}>
+                        {typeCounts.form}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTypeFilter('hepsi');
+                      }}
+                      className={`shrink-0 min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                        typeFilter === 'hepsi'
+                          ? 'bg-violet-600 text-white shadow-xs ring-2 ring-violet-200'
+                          : 'bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200/60'
+                      }`}
+                    >
+                      <span>✨ Afiş + Form</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        typeFilter === 'hepsi' ? 'bg-white/25 text-white' : 'bg-violet-100 text-violet-800'
+                      }`}>
+                        {typeCounts.hepsi}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="text-xs text-slate-500 font-medium flex items-center justify-between sm:justify-end gap-2 pt-1 sm:pt-0 border-t border-slate-100 sm:border-0">
+                    <span className="text-[11px] text-slate-400">Gösterilen:</span>
+                    <span>
+                      <strong className="text-slate-800 font-bold">{filteredRequests.length}</strong> / {requests.length} kayıt
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               {/* Responsive Filter and Search Bar */}
               <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-4 mb-4 sm:mb-6 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-4">
                 <div className="relative w-full sm:max-w-xs">
@@ -2188,7 +2984,7 @@ export default function App() {
                     type="text"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Etkinlik, ekip veya kişi ara…"
+                    placeholder="Etkinlik, ekip veya form ara…"
                     className="w-full min-h-[44px] pl-9 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 placeholder:text-slate-400"
                   />
                   {searchQuery && (
@@ -2245,10 +3041,10 @@ export default function App() {
                   <h3 className="text-sm sm:text-base font-bold text-slate-800 mb-1">Kayıt Bulunamadı</h3>
                   <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
                     {searchQuery
-                      ? 'Aramanıza uygun bir afiş talebi bulunamadı.'
-                      : currentUser.role === 'admin'
-                      ? 'Bu aşamada henüz talep bulunmuyor.'
-                      : 'Henüz bir afiş talebi oluşturmadınız.'}
+                      ? 'Aramanıza uygun bir talep bulunamadı.'
+                      : isAdmin
+                      ? 'Bu kriterde henüz talep bulunmuyor.'
+                      : 'Henüz bir talep oluşturmadınız.'}
                   </p>
                   {currentUser.role === 'user' && (
                     <button
@@ -2260,11 +3056,12 @@ export default function App() {
                   )}
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3.5">
                   {filteredRequests.map((req, index) => {
                     const cfg = STATUS_CONFIG[req.status] || STATUS_CONFIG['talep-alindi'];
-                    const isAdmin = currentUser.role === 'admin';
                     const hasUnseenChanges = Boolean(req.hasUserChanges && !req.adminAcknowledgedChange);
+                    const hasForm = req.talepTuru === 'form' || req.talepTuru === 'hepsi';
+                    const hasAfis = (req.talepTuru || 'afis') === 'afis' || req.talepTuru === 'hepsi';
 
                     return (
                       <div
@@ -2317,9 +3114,26 @@ export default function App() {
                           {/* Header row with badges & dates */}
                           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
                             <span className="text-xs font-mono font-bold text-slate-400">#{index + 1}</span>
+
+                            {/* Request Type Badge */}
+                            {req.talepTuru === 'hepsi' ? (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 border border-purple-200 flex items-center gap-1">
+                                <span>✨</span> Afiş + Form
+                              </span>
+                            ) : req.talepTuru === 'form' ? (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                <span>📝</span> Sadece Form
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 border border-indigo-200 flex items-center gap-1">
+                                <span>🎨</span> Sadece Afiş
+                              </span>
+                            )}
+
                             <span className="text-xs font-extrabold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md">
                               {req.ekip}
                             </span>
+
                             {/* TALEP TARİHİ CLEARLY HIGHLIGHTED */}
                             <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
                               <Clock3 size={11} className="text-slate-400 shrink-0" />
@@ -2358,7 +3172,7 @@ export default function App() {
                           </h3>
 
                           {/* Event info */}
-                          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-slate-500">
+                          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-slate-500 mb-2">
                             <span className="flex items-center gap-1.5 font-semibold text-slate-700">
                               <Calendar size={13} className="text-violet-600 shrink-0" />
                               <span>Etkinlik: {formatDateOnly(req.tarih)} {req.saat ? `(${req.saat})` : ''}</span>
@@ -2373,52 +3187,151 @@ export default function App() {
                             </span>
                           </div>
 
-                          {/* 4-Step Progress Stepper (Responsive) */}
-                          <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center gap-1.5 sm:gap-2 max-w-xl">
-                            <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0">
-                              <div
-                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                  cfg.step >= 1 ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-500'
-                                }`}
-                              >
-                                {cfg.step > 1 ? '✓' : '1'}
-                              </div>
-                              <span className="text-[10px] font-semibold text-slate-600 truncate">Alındı</span>
+                          {/* CRITICAL: PROMINENT GOOGLE FORM LINK BOX (VISIBLE TO ALL ROLES) */}
+                          {hasForm && (
+                            <div className="mt-2.5 p-2.5 sm:p-3 rounded-xl border transition-all text-xs">
+                              {req.formLink ? (
+                                <div className="bg-emerald-50/90 border border-emerald-300 rounded-lg p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-6 h-6 rounded-md bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                                      <LinkIcon size={13} />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-extrabold text-emerald-900">
+                                          Google Form Linki Hazır:
+                                        </span>
+                                        {isAfisManager && (
+                                          <span className="text-[10px] font-bold bg-emerald-200/80 text-emerald-800 px-1.5 py-0.2 rounded">
+                                            💡 QR Kod için kullanabilirsiniz
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="font-mono text-[11px] text-emerald-700 truncate max-w-sm sm:max-w-md">
+                                        {req.formLink}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
+                                    <button
+                                      type="button"
+                                      onClick={() => window.open(req.formLink, '_blank')}
+                                      className="min-h-[32px] px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-xs transition-transform flex items-center gap-1"
+                                      title="Formu yeni sekmede aç"
+                                    >
+                                      <ExternalLink size={12} />
+                                      <span>Formu Aç</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyLink(req.formLink || '')}
+                                      className="min-h-[32px] px-2 py-1 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 active:scale-95 text-xs font-bold rounded-lg transition-transform flex items-center gap-1"
+                                      title="Linki Panoya Kopyala"
+                                    >
+                                      <Copy size={12} />
+                                      <span>Kopyala</span>
+                                    </button>
+
+                                    {isFormManager && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setFormLinkModalReq(req);
+                                          setFormLinkInput(req.formLink || '');
+                                        }}
+                                        className="min-h-[32px] px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
+                                        title="Linki Güncelle"
+                                      >
+                                        ✏️
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-base shrink-0">⏳</span>
+                                    <div className="text-xs">
+                                      <strong className="text-amber-950 font-bold block">
+                                        Google Form Linki Bekleniyor
+                                      </strong>
+                                      <span className="text-[11px] text-amber-800">
+                                        {isFormManager
+                                          ? 'Adminokur: Bu etkinlik için henüz form linki girilmedi.'
+                                          : 'Form Yöneticisi (Adminokur) bağlantıyı hazırlıyor…'}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {isFormManager && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFormLinkModalReq(req);
+                                        setFormLinkInput(req.formLink || '');
+                                      }}
+                                      className="min-h-[32px] px-3 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-xs transition-transform flex items-center gap-1 self-start sm:self-auto shrink-0"
+                                    >
+                                      <Plus size={13} />
+                                      <span>Form Linki Ekle</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                            <div className={`h-0.5 flex-1 ${cfg.step >= 2 ? 'bg-amber-500' : 'bg-slate-200'}`} />
-                            <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0">
-                              <div
-                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                  cfg.step >= 2 ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-500'
-                                }`}
-                              >
-                                {cfg.step > 2 ? '✓' : '2'}
+                          )}
+
+                          {/* 4-Step Progress Stepper (Responsive) - If has Afiş */}
+                          {hasAfis && (
+                            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center gap-1.5 sm:gap-2 max-w-xl">
+                              <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0">
+                                <div
+                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                    cfg.step >= 1 ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-500'
+                                  }`}
+                                >
+                                  {cfg.step > 1 ? '✓' : '1'}
+                                </div>
+                                <span className="text-[10px] font-semibold text-slate-600 truncate">Alındı</span>
                               </div>
-                              <span className="text-[10px] font-semibold text-slate-600 truncate">Tasarım</span>
-                            </div>
-                            <div className={`h-0.5 flex-1 ${cfg.step >= 3 ? 'bg-blue-600' : 'bg-slate-200'}`} />
-                            <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0">
-                              <div
-                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                  cfg.step >= 3 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'
-                                }`}
-                              >
-                                {cfg.step > 3 ? '✓' : '3'}
+                              <div className={`h-0.5 flex-1 ${cfg.step >= 2 ? 'bg-amber-500' : 'bg-slate-200'}`} />
+                              <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0">
+                                <div
+                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                    cfg.step >= 2 ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-500'
+                                  }`}
+                                >
+                                  {cfg.step > 2 ? '✓' : '2'}
+                                </div>
+                                <span className="text-[10px] font-semibold text-slate-600 truncate">Tasarım</span>
                               </div>
-                              <span className="text-[10px] font-semibold text-slate-600 truncate">Onay</span>
-                            </div>
-                            <div className={`h-0.5 flex-1 ${cfg.step >= 4 ? 'bg-emerald-600' : 'bg-slate-200'}`} />
-                            <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0">
-                              <div
-                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                  cfg.step >= 4 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'
-                                }`}
-                              >
-                                {cfg.step >= 4 ? '✓' : '4'}
+                              <div className={`h-0.5 flex-1 ${cfg.step >= 3 ? 'bg-blue-600' : 'bg-slate-200'}`} />
+                              <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0">
+                                <div
+                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                    cfg.step >= 3 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'
+                                  }`}
+                                >
+                                  {cfg.step > 3 ? '✓' : '3'}
+                                </div>
+                                <span className="text-[10px] font-semibold text-slate-600 truncate">Onay</span>
                               </div>
-                              <span className="text-[10px] font-semibold text-slate-600 truncate">Yayın</span>
+                              <div className={`h-0.5 flex-1 ${cfg.step >= 4 ? 'bg-emerald-600' : 'bg-slate-200'}`} />
+                              <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0">
+                                <div
+                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                    cfg.step >= 4 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'
+                                  }`}
+                                >
+                                  {cfg.step >= 4 ? '✓' : '4'}
+                                </div>
+                                <span className="text-[10px] font-semibold text-slate-600 truncate">Yayın</span>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
 
                         <div className="shrink-0 flex items-center justify-between w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 gap-2">
@@ -2439,7 +3352,7 @@ export default function App() {
                                   handleStartEdit(req);
                                 }}
                                 className="min-h-[36px] px-3 py-1 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1"
-                                title="Afiş yayınlanmadan önce düzenle"
+                                title="Etkinlik yayınlanmadan önce düzenle"
                               >
                                 <Edit3 size={13} />
                                 <span>Düzenle</span>
@@ -2447,7 +3360,7 @@ export default function App() {
                             ) : (
                               <span
                                 className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-400 text-[10px] font-bold border border-slate-200 flex items-center gap-1"
-                                title="Yayınlandı aşamasına geçen afişler düzenlenemez"
+                                title="Yayınlandı aşamasına geçen etkinlikler düzenlenemez"
                               >
                                 <Lock size={11} />
                                 <span>Kilitli</span>
@@ -2456,7 +3369,7 @@ export default function App() {
                           )}
 
                           {/* ADMIN QUICK APPROVE BUTTON: Stops red warning */}
-                          {currentUser.role === 'admin' && hasUnseenChanges && (
+                          {isAdmin && hasUnseenChanges && (
                             <button
                               type="button"
                               disabled={acknowledgingId === req.id}
@@ -2472,7 +3385,7 @@ export default function App() {
                             </button>
                           )}
 
-                          {currentUser.role === 'admin' && (
+                          {isAdmin && (
                             <button
                               type="button"
                               onClick={(e) => {
@@ -2639,9 +3552,24 @@ export default function App() {
             {/* Modal Header */}
             <div className="px-4 py-3 sm:p-6 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
               <div className="min-w-0">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-violet-600 block mb-0.5 truncate">
-                  {selectedRequest.ekip}
-                </span>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-violet-600 truncate">
+                    {selectedRequest.ekip}
+                  </span>
+                  {selectedRequest.talepTuru === 'hepsi' ? (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-purple-100 text-purple-800">
+                      ✨ Afiş + Form
+                    </span>
+                  ) : selectedRequest.talepTuru === 'form' ? (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                      📝 Sadece Form
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800">
+                      🎨 Sadece Afiş
+                    </span>
+                  )}
+                </div>
                 <h3 className="text-base sm:text-lg font-black text-slate-900 leading-snug">
                   {selectedRequest.etkinlikAdi}
                 </h3>
@@ -2657,7 +3585,7 @@ export default function App() {
             {/* Modal Content */}
             <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1">
               {/* ADMIN VIEW: UNSEEN USER CHANGES RED ALERT BOX */}
-              {currentUser.role === 'admin' && selectedRequest.hasUserChanges && !selectedRequest.adminAcknowledgedChange && (
+              {isAdmin && selectedRequest.hasUserChanges && !selectedRequest.adminAcknowledgedChange && (
                 <div className="bg-red-600 text-white rounded-2xl p-4 sm:p-5 shadow-lg border border-red-700 space-y-2.5 animate-pulse">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2">
@@ -2677,7 +3605,7 @@ export default function App() {
                     </button>
                   </div>
                   <p className="text-xs text-red-100 font-medium leading-relaxed">
-                    Kullanıcı bu afiş talebinde sonradan değişiklik yapmıştır. Güncellenen bilgileri kontrol edip yukarıdaki butona tıklayarak kırmızı uyarıyı kaldırabilirsiniz.
+                    Kullanıcı bu talepte sonradan değişiklik yapmıştır. Güncellenen bilgileri kontrol edip butona tıklayarak kırmızı uyarıyı kaldırabilirsiniz.
                   </p>
                   {selectedRequest.userChangesNote && (
                     <div className="bg-red-700/90 p-3 rounded-xl text-xs font-semibold text-white border border-red-500/60">
@@ -2696,7 +3624,7 @@ export default function App() {
               )}
 
               {/* ADMIN VIEW: ALREADY APPROVED NOTE */}
-              {currentUser.role === 'admin' && selectedRequest.hasUserChanges && selectedRequest.adminAcknowledgedChange && (
+              {isAdmin && selectedRequest.hasUserChanges && selectedRequest.adminAcknowledgedChange && (
                 <div className="bg-slate-100 border border-slate-200 rounded-xl p-3 text-xs text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2 font-medium">
                     <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
@@ -2716,7 +3644,7 @@ export default function App() {
                     <div>
                       <strong className="block text-blue-950 font-bold">Değişikliğiniz Yöneticiye İletildi</strong>
                       <p className="text-[11px] text-blue-800 mt-0.5 leading-relaxed">
-                        Yaptığınız düzenleme admin paneline iletilmiştir. Tasarım ekibi güncel bilgileri inceledikten sonra onaylayacaktır.
+                        Yaptığınız düzenleme admin paneline iletilmiştir. Tasarım ve form ekibi güncel bilgileri inceleyecektir.
                       </p>
                       {selectedRequest.userChangesNote && (
                         <p className="text-[11px] text-blue-700 italic mt-1 font-semibold">
@@ -2733,38 +3661,209 @@ export default function App() {
                 )
               )}
 
-              {/* Poster Preview */}
-              <div className="bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100 rounded-2xl p-4 sm:p-5 shadow-xs">
-                <span className="text-[10px] font-bold text-violet-700 uppercase tracking-wider block mb-2">
-                  🎨 Afiş Ön İzleme
-                </span>
-                <h4 className="text-sm sm:text-base font-black text-slate-900 mb-1 leading-snug">
-                  {selectedRequest.etkinlikAdi}
-                </h4>
-                {selectedRequest.altBaslik && (
-                  <p className="text-xs font-semibold text-violet-600 italic mb-2">{selectedRequest.altBaslik}</p>
-                )}
-                {selectedRequest.aciklama && (
-                  <p className="text-xs text-slate-600 mb-3 bg-white/80 p-3 rounded-xl border border-violet-100 leading-relaxed">
-                    {selectedRequest.aciklama}
-                  </p>
-                )}
-                <div className="pt-3 border-t border-violet-200/60 space-y-1.5 text-xs">
-                  <div className="flex items-center gap-2 font-bold text-slate-800">
-                    <Calendar size={13} className="text-violet-600 shrink-0" />
-                    <span>
-                      Etkinlik: {formatDateOnly(selectedRequest.tarih)} {selectedRequest.saat ? `· Saat ${selectedRequest.saat}` : ''}
-                    </span>
+              {/* CRITICAL: PROMINENT GOOGLE FORM SECTION (VISIBLE TO ALL ROLES) */}
+              {(selectedRequest.talepTuru === 'form' || selectedRequest.talepTuru === 'hepsi') && (
+                <div className="bg-emerald-50/70 border-2 border-emerald-300 rounded-2xl p-4 sm:p-5 space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-emerald-200 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">📝</span>
+                      <div>
+                        <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+                          Google Form / Katılım Formu Bilgileri
+                        </h4>
+                        <p className="text-[11px] text-emerald-700">Tüm kullanıcılar ve yöneticiler görebilir</p>
+                      </div>
+                    </div>
+
+                    {selectedRequest.formLink ? (
+                      <span className="px-2 py-0.5 bg-emerald-600 text-white text-[10px] font-extrabold rounded-md flex items-center gap-1">
+                        ✓ Link Hazır
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 bg-amber-500 text-white text-[10px] font-extrabold rounded-md flex items-center gap-1 animate-pulse">
+                        ⏳ Link Bekleniyor
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 font-medium text-slate-700">
-                    <MapPin size={13} className="text-violet-600 shrink-0" />
-                    <span className="truncate">{selectedRequest.mekan}</span>
-                  </div>
-                  {selectedRequest.ozelNot && (
-                    <div className="text-[11px] text-slate-500 italic pt-1">{selectedRequest.ozelNot}</div>
+
+                  {/* GOOGLE FORM LINK BOX */}
+                  {selectedRequest.formLink ? (
+                    <div className="bg-white border-2 border-emerald-400 rounded-xl p-3.5 shadow-sm space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-extrabold text-emerald-900 flex items-center gap-1.5">
+                          <LinkIcon size={14} className="text-emerald-600" />
+                          <span>Google Form Bağlantısı:</span>
+                        </span>
+                        {isAfisManager && (
+                          <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full">
+                            💡 Afiş QR Kodu için kullanabilirsiniz
+                          </span>
+                        )}
+                      </div>
+
+                      <a
+                        href={selectedRequest.formLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-mono text-xs text-emerald-700 hover:text-emerald-900 underline block break-all font-bold bg-emerald-50/80 p-2.5 rounded-lg border border-emerald-100"
+                      >
+                        {selectedRequest.formLink}
+                      </a>
+
+                      <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+                        <div className="text-[10px] text-slate-400">
+                          {selectedRequest.formAddedBy && (
+                            <span>Ekleyen: <strong>{selectedRequest.formAddedBy.name || 'Yönetici'}</strong> ({formatDateTime(selectedRequest.formAddedAt)})</span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => window.open(selectedRequest.formLink, '_blank')}
+                            className="min-h-[36px] px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-xs"
+                          >
+                            <ExternalLink size={13} />
+                            <span>Formu Aç</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLink(selectedRequest.formLink || '')}
+                            className="min-h-[36px] px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
+                          >
+                            <Copy size={13} />
+                            <span>Linki Kopyala</span>
+                          </button>
+
+                          {isFormManager && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormLinkModalReq(selectedRequest);
+                                setFormLinkInput(selectedRequest.formLink || '');
+                              }}
+                              className="min-h-[36px] px-2.5 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-xs font-bold rounded-xl transition-colors"
+                              title="Linki Güncelle"
+                            >
+                              ✏️ Düzenle
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* IF FORM LINK NOT ADDED YET */
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 space-y-3">
+                      <div className="flex items-start gap-2.5 text-xs text-amber-900">
+                        <span className="text-lg shrink-0">⏳</span>
+                        <div>
+                          <strong className="block font-bold text-amber-950">
+                            Google Form Linki Henüz Eklenmedi
+                          </strong>
+                          <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                            {isFormManager
+                              ? 'Adminokur: Aşağıdaki alana oluşturduğunuz Google Form bağlantısını yapıştırıp hemen yayınlayabilirsiniz.'
+                              : 'Form Yöneticisi (Adminokur) bu etkinlik için form linkini oluşturduğunda tüm kullanıcılar ve afiş tasarımcısı burada anında görebilecektir.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* INLINE LINK INPUT FOR ADMINOKUR / ADMIN */}
+                      {isFormManager && (
+                        <div className="pt-2 border-t border-amber-200/80 space-y-2">
+                          <label className="block text-[11px] font-black text-emerald-900 uppercase tracking-wider">
+                            🔗 Google Form Linkini Şimdi Ekle:
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="url"
+                              value={formLinkInput}
+                              onChange={e => setFormLinkInput(e.target.value)}
+                              placeholder="https://forms.gle/…"
+                              className="flex-1 min-h-[40px] px-3 bg-white border border-emerald-300 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                            />
+                            <button
+                              type="button"
+                              disabled={savingFormLink || !formLinkInput.trim()}
+                              onClick={() => handleSaveFormLink(selectedRequest.id, formLinkInput)}
+                              className="min-h-[40px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                            >
+                              {savingFormLink ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
+                              <span>Kaydet &amp; Yayınla</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* FORM QUESTIONS LIST */}
+                  {selectedRequest.formSorulari && selectedRequest.formSorulari.length > 0 && (
+                    <div className="bg-white rounded-xl p-3 border border-emerald-200/80 space-y-2">
+                      <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
+                        📋 Form Soruları ({selectedRequest.formSorulari.length}):
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {selectedRequest.formSorulari.map((q, i) => (
+                          <div key={i} className="text-xs text-slate-800 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 flex items-center gap-2">
+                            <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold flex items-center justify-center shrink-0">
+                              {i + 1}
+                            </span>
+                            <span className="font-semibold truncate">{q}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* FORM DESCRIPTION / LOGISTICS */}
+                  {selectedRequest.formAciklamasi && (
+                    <div className="bg-white rounded-xl p-3 border border-emerald-200/80 space-y-1">
+                      <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
+                        📢 Form Açıklaması &amp; Lojistik Detayları:
+                      </span>
+                      <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-100 font-sans">
+                        {selectedRequest.formAciklamasi}
+                      </p>
+                    </div>
                   )}
                 </div>
-              </div>
+              )}
+
+              {/* Poster Preview (If Afiş or Hepsi) */}
+              {(selectedRequest.talepTuru === 'afis' || selectedRequest.talepTuru === 'hepsi' || !selectedRequest.talepTuru) && (
+                <div className="bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100 rounded-2xl p-4 sm:p-5 shadow-xs">
+                  <span className="text-[10px] font-bold text-violet-700 uppercase tracking-wider block mb-2">
+                    🎨 Afiş Ön İzleme
+                  </span>
+                  <h4 className="text-sm sm:text-base font-black text-slate-900 mb-1 leading-snug">
+                    {selectedRequest.etkinlikAdi}
+                  </h4>
+                  {selectedRequest.altBaslik && (
+                    <p className="text-xs font-semibold text-violet-600 italic mb-2">{selectedRequest.altBaslik}</p>
+                  )}
+                  {selectedRequest.aciklama && (
+                    <p className="text-xs text-slate-600 mb-3 bg-white/80 p-3 rounded-xl border border-violet-100 leading-relaxed whitespace-pre-line">
+                      {selectedRequest.aciklama}
+                    </p>
+                  )}
+                  <div className="pt-3 border-t border-violet-200/60 space-y-1.5 text-xs">
+                    <div className="flex items-center gap-2 font-bold text-slate-800">
+                      <Calendar size={13} className="text-violet-600 shrink-0" />
+                      <span>
+                        Etkinlik: {formatDateOnly(selectedRequest.tarih)} {selectedRequest.saat ? `· Saat ${selectedRequest.saat}` : ''}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 font-medium text-slate-700">
+                      <MapPin size={13} className="text-violet-600 shrink-0" />
+                      <span className="truncate">{selectedRequest.mekan}</span>
+                    </div>
+                    {selectedRequest.ozelNot && (
+                      <div className="text-[11px] text-slate-500 italic pt-1">{selectedRequest.ozelNot}</div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Metadata Grid (Prominent Request Date) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-xs bg-slate-50 p-3.5 sm:p-4 rounded-xl border border-slate-200/60">
@@ -2792,11 +3891,11 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Admin Stage Controls */}
-              {currentUser.role === 'admin' && (
+              {/* Admin Stage Controls (Afiş Manager & Admin) */}
+              {isAfisManager && (
                 <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 sm:p-4">
                   <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">
-                    🔄 Aşamayı Güncelle
+                    🔄 Afiş Aşamasını Güncelle
                   </h4>
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -2854,7 +3953,7 @@ export default function App() {
             {/* Modal Footer with pb-safe */}
             <div className="p-3.5 sm:p-4 pb-safe bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-2">
-                {currentUser.role === 'admin' && (
+                {isAdmin && (
                   <button
                     type="button"
                     onClick={() => setRequestToDelete(selectedRequest)}
@@ -2883,7 +3982,7 @@ export default function App() {
                   ) : (
                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 bg-slate-100 px-3 py-2 rounded-xl border border-slate-200">
                       <Lock size={13} />
-                      <span>Afiş Yayınlandı (Kilitli)</span>
+                      <span>Etkinlik Yayınlandı (Kilitli)</span>
                     </div>
                   )
                 )}
@@ -2895,6 +3994,105 @@ export default function App() {
               >
                 Kapat
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════ DEDICATED GOOGLE FORM LINK MODAL (FOR ADMINOKUR & ADMIN) ════ */}
+      {formLinkModalReq && (
+        <div
+          onClick={() => !savingFormLink && setFormLinkModalReq(null)}
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 pb-safe sm:pb-6 shadow-2xl border border-slate-200 animate-sheet-up sm:animate-scale-in"
+          >
+            {/* Mobile Sheet Indicator */}
+            <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-3.5 sm:hidden" />
+
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <LinkIcon size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                    Google Form Linki Ekle / Güncelle
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate max-w-xs sm:max-w-sm mt-0.5">
+                    {formLinkModalReq.etkinlikAdi}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={savingFormLink}
+                onClick={() => setFormLinkModalReq(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors shrink-0"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900">
+                <p className="font-semibold">
+                  Bu link kaydedildiği anda hem afiş tasarımcısı hem de talep sahibi tarafından anında görülecektir.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Google Form / Kayıt URL'si <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="url"
+                  value={formLinkInput}
+                  onChange={e => setFormLinkInput(e.target.value)}
+                  placeholder="https://forms.gle/..."
+                  className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600"
+                />
+              </div>
+
+              {/* Quick Bolu Demo link fill button */}
+              <button
+                type="button"
+                onClick={() => setFormLinkInput('https://forms.gle/bolu-sonbahar-tefekkur-gezisi-2026')}
+                className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200 transition-colors flex items-center gap-1.5"
+              >
+                <span>🍁</span>
+                <span>Örnek Bolu Gezisi Form Linkini Yapıştır</span>
+              </button>
+
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={savingFormLink}
+                  onClick={() => setFormLinkModalReq(null)}
+                  className="w-full sm:w-auto min-h-[42px] px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors order-2 sm:order-1"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="button"
+                  disabled={savingFormLink || !formLinkInput.trim()}
+                  onClick={() => handleSaveFormLink(formLinkModalReq.id, formLinkInput)}
+                  className="w-full sm:w-auto min-h-[42px] px-6 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 order-1 sm:order-2"
+                >
+                  {savingFormLink ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" /> Kaydediliyor…
+                    </>
+                  ) : (
+                    <>
+                      <Check size={14} /> Linki Kaydet &amp; Yayınla
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2920,7 +4118,7 @@ export default function App() {
               Etkinliği Silmek İstiyor Musunuz?
             </h3>
             <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-              <strong className="text-slate-900 font-bold">"{requestToDelete.etkinlikAdi}"</strong> başlıklı etkinlik ve afiş talebi kalıcı olarak veritabanından silinecektir. Bu işlem geri alınamaz.
+              <strong className="text-slate-900 font-bold">"{requestToDelete.etkinlikAdi}"</strong> başlıklı etkinlik ve talepler kalıcı olarak veritabanından silinecektir. Bu işlem geri alınamaz.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-2 border-t border-slate-100">
@@ -2974,10 +4172,10 @@ export default function App() {
                 </div>
                 <div>
                   <h3 className="text-base sm:text-lg font-black text-slate-900 leading-snug">
-                    Afiş Talebini Düzenle
+                    Talebi Düzenle
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Afiş yayınlanmadan önce etkinlik detaylarını güncelleyebilirsiniz.
+                    Yayınlanmadan önce etkinlik ve form detaylarını güncelleyebilirsiniz.
                   </p>
                 </div>
               </div>
@@ -3017,7 +4215,7 @@ export default function App() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className={`grid grid-cols-1 ${editFormData.talepTuru !== 'form' ? 'sm:grid-cols-2' : ''} gap-3.5`}>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                     Düzenleyen Ekip <span className="text-red-500">*</span>
@@ -3032,18 +4230,20 @@ export default function App() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Alt Başlık / Slogan
-                  </label>
-                  <input
-                    type="text"
-                    value={editFormData.altBaslik}
-                    onChange={e => setEditFormData({ ...editFormData, altBaslik: e.target.value })}
-                    placeholder="Örn: Geleceğe Birlikte Adım Atıyoruz"
-                    className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
-                  />
-                </div>
+                {editFormData.talepTuru !== 'form' && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                      Alt Başlık / Slogan
+                    </label>
+                    <input
+                      type="text"
+                      value={editFormData.altBaslik}
+                      onChange={e => setEditFormData({ ...editFormData, altBaslik: e.target.value })}
+                      placeholder="Örn: Geleceğe Birlikte Adım Atıyoruz"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -3086,7 +4286,7 @@ export default function App() {
                         Hatırlatma: Etkinliğe {diffDays <= 0 ? '1 günden az süre kaldı' : `${diffDays} gün kaldı`}!
                       </strong>
                       <span className="text-[11px] text-amber-800 leading-relaxed block mt-0.5">
-                        Afiş taleplerinin en geç etkinlik tarihinden <strong>7 gün önce</strong> yapılması önerilir. Güncellemenizi kaydedebilirsiniz; afiş revize sürecinin zamanında yetişebilmesi için lütfen aciliyetini aşağıdaki notta belirtiniz.
+                        Taleplerin en geç etkinlik tarihinden <strong>7 gün önce</strong> yapılması önerilir. Sürecin zamanında yetişebilmesi için lütfen aciliyetini aşağıdaki notta belirtiniz.
                       </span>
                     </div>
                   </div>
@@ -3116,9 +4316,91 @@ export default function App() {
                   value={editFormData.aciklama}
                   onChange={e => setEditFormData({ ...editFormData, aciklama: e.target.value })}
                   placeholder="Etkinlik içeriği ve detaylar…"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 leading-relaxed font-sans"
                 />
               </div>
+
+              {/* EDIT FORM FIELDS (IF FORM OR HEPSI) */}
+              {(editFormData.talepTuru === 'form' || editFormData.talepTuru === 'hepsi') && (
+                <div className="bg-emerald-50/70 border-2 border-emerald-300 rounded-2xl p-4 space-y-3.5">
+                  <div className="flex items-center gap-2 pb-2 border-b border-emerald-200">
+                    <span className="text-lg">📝</span>
+                    <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+                      Google Form Soruları &amp; Detayları
+                    </h4>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-950 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>Formda Sorulacak Sorular ({editFormQuestions.length})</span>
+                      <span className="text-[10px] text-emerald-700 font-normal">Soru ekleyip çıkarabilirsiniz</span>
+                    </label>
+
+                    <div className="flex flex-wrap gap-1.5 mb-2 p-2 bg-white rounded-xl border border-emerald-200 min-h-[44px] items-center">
+                      {editFormQuestions.map((q, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-900 text-xs font-semibold rounded-lg border border-emerald-200/80"
+                        >
+                          <span className="text-[10px] font-bold text-emerald-700">#{idx + 1}</span>
+                          <span>{q}</span>
+                          <button
+                            type="button"
+                            onClick={() => setEditFormQuestions(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-emerald-600 hover:text-red-600 p-0.5 rounded transition-colors"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editNewQuestionInput}
+                        onChange={e => setEditNewQuestionInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (editNewQuestionInput.trim()) {
+                              setEditFormQuestions([...editFormQuestions, editNewQuestionInput.trim()]);
+                              setEditNewQuestionInput('');
+                            }
+                          }
+                        }}
+                        placeholder="Yeni soru ekleyin…"
+                        className="flex-1 min-h-[40px] px-3 bg-white border border-emerald-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (editNewQuestionInput.trim()) {
+                            setEditFormQuestions([...editFormQuestions, editNewQuestionInput.trim()]);
+                            setEditNewQuestionInput('');
+                          }
+                        }}
+                        className="min-h-[40px] px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shrink-0"
+                      >
+                        <Plus size={13} /> Ekle
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-950 uppercase tracking-wider mb-1">
+                      Form Açıklaması &amp; Lojistik Metni
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editFormData.formAciklamasi}
+                      onChange={e => setEditFormData({ ...editFormData, formAciklamasi: e.target.value })}
+                      placeholder="Ücret, Filistin fonu, ikram, kalkış saati…"
+                      className="w-full px-3.5 py-2 bg-white border border-emerald-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 leading-relaxed font-sans"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">

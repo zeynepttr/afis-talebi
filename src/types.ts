@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'user';
+export type UserRole = 'admin' | 'admin_afis' | 'admin_form' | 'user';
 
 export interface AppUser {
   uid: string;
@@ -10,9 +10,12 @@ export interface AppUser {
 }
 
 export type RequestStatus = 'talep-alindi' | 'tasarimda' | 'merkez-onayinda' | 'yayinlandi';
+export type RequestType = 'afis' | 'form' | 'hepsi';
+export type FormStatus = 'form-bekliyor' | 'form-hazirlaniyor' | 'form-hazir';
 
 export interface PosterRequest {
   id: string;
+  talepTuru?: RequestType; // 'afis' | 'form' | 'hepsi'
   etkinlikAdi: string;
   ekip: string;
   altBaslik?: string;
@@ -22,6 +25,19 @@ export interface PosterRequest {
   mekan: string;
   ozelNot?: string;
   status: RequestStatus;
+  
+  // Form Details (when talepTuru is 'form' or 'hepsi')
+  formSorulari?: string[];
+  formAciklamasi?: string;
+  formSartlari?: string;
+  formLink?: string;
+  formStatus?: FormStatus;
+  formAddedBy?: {
+    uid: string;
+    name: string;
+  };
+  formAddedAt?: any;
+
   createdBy: {
     uid: string;
     name: string;
@@ -75,3 +91,28 @@ export const STATUS_CONFIG: Record<
     borderColor: 'border-l-emerald-500'
   }
 };
+
+export const FORM_STATUS_CONFIG: Record<
+  FormStatus,
+  { label: string; icon: string; badgeBg: string; color: string }
+> = {
+  'form-bekliyor': {
+    label: 'Form Bekleniyor',
+    icon: '⏳',
+    badgeBg: 'bg-amber-50 text-amber-700 border-amber-200',
+    color: '#d97706'
+  },
+  'form-hazirlaniyor': {
+    label: 'Form Hazırlanıyor',
+    icon: '✍️',
+    badgeBg: 'bg-blue-50 text-blue-700 border-blue-200',
+    color: '#2563eb'
+  },
+  'form-hazir': {
+    label: 'Google Form Hazır',
+    icon: '🔗',
+    badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    color: '#059669'
+  }
+};
+
