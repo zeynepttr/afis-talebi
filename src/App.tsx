@@ -871,21 +871,22 @@ export default function App() {
 
     try {
       await rtdbUpdate(rtdbRef(rtdb, `requests/${requestId}`), {
-        adminAcknowledgedChange: true
+        adminAcknowledgedChange: true,
+        hasUserChanges: false
       });
 
-      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, adminAcknowledgedChange: true } : r));
+      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, adminAcknowledgedChange: true, hasUserChanges: false } : r));
 
       if (selectedRequest?.id === requestId) {
-        setSelectedRequest(prev => prev ? { ...prev, adminAcknowledgedChange: true } : null);
+        setSelectedRequest(prev => prev ? { ...prev, adminAcknowledgedChange: true, hasUserChanges: false } : null);
       }
 
-      showToast('Değişiklik onaylandı! Kırmızı uyarı durduruldu. ✓', 'success');
+      showToast('Değişiklik onaylandı! Uyarı kaldırıldı. ✓', 'success');
     } catch (err: any) {
       console.error("Acknowledge change error:", err);
-      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, adminAcknowledgedChange: true } : r));
+      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, adminAcknowledgedChange: true, hasUserChanges: false } : r));
       if (selectedRequest?.id === requestId) {
-        setSelectedRequest(prev => prev ? { ...prev, adminAcknowledgedChange: true } : null);
+        setSelectedRequest(prev => prev ? { ...prev, adminAcknowledgedChange: true, hasUserChanges: false } : null);
       }
       showToast('Değişiklik onaylandı! Uyarı kaldırıldı. ✓', 'success');
     } finally {
@@ -1613,19 +1614,19 @@ export default function App() {
                 onClick={() => handleSelectTab('changed')}
                 className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                   activeTab === 'changed'
-                    ? 'bg-red-50 text-red-700 border border-red-200 font-bold'
+                    ? 'bg-amber-50 text-amber-900 border border-amber-200 font-bold'
                     : stats.changed > 0
-                    ? 'bg-red-50/70 text-red-700 hover:bg-red-100/80 font-bold border border-red-200 shadow-xs'
+                    ? 'bg-amber-50/80 text-amber-900 hover:bg-amber-100 font-bold border border-amber-200'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="text-base">🚨</span>
-                  <span>Değiştirilen Talepler</span>
+                  <span className="text-base">✏️</span>
+                  <span>Güncellenen Talepler</span>
                 </div>
                 {stats.changed > 0 ? (
-                  <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold animate-pulse shadow-xs">
-                    {stats.changed} UYARI
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold shadow-xs">
+                    {stats.changed}
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold">
@@ -1746,14 +1747,14 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-1.5">
-            {currentUser.role === 'admin' && stats.changed > 0 && (
+            {isAdmin && stats.changed > 0 && (
               <button
                 onClick={() => handleSelectTab('changed')}
-                className="py-1 px-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-[11px] font-black rounded-xl shadow-xs flex items-center gap-1 min-h-[36px] transition-transform animate-pulse"
-                title={`${stats.changed} adet değiştirilen talep var!`}
+                className="py-1 px-2.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-[11px] font-bold rounded-xl shadow-xs flex items-center gap-1 min-h-[36px] transition-transform"
+                title={`${stats.changed} adet güncellenen talep var`}
               >
                 <AlertTriangle size={13} />
-                <span>{stats.changed} UYARI</span>
+                <span>{stats.changed} Güncelleme</span>
               </button>
             )}
 
@@ -1796,20 +1797,20 @@ export default function App() {
             <p className="text-xs text-slate-500">
               {currentUser.role === 'admin'
                 ? activeTab === 'changed'
-                  ? 'Kullanıcıların onay/tasarım aşamasında değişiklik yaptığı talepler (Kırmızı Uyarı)'
+                  ? 'Kullanıcıların değişiklik yaptığı güncellenen talepler'
                   : 'Afiş taleplerini inceleyin, aşamaları yönetin ve kullanıcı ekleyin.'
                 : 'Etkinlikleriniz için afiş talebi oluşturun ve durumunu takip edin.'}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
-            {currentUser.role === 'admin' && stats.changed > 0 && (
+            {isAdmin && stats.changed > 0 && (
               <button
                 onClick={() => handleSelectTab('changed')}
-                className="py-1.5 px-3.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-md shadow-red-200 animate-pulse"
+                className="py-1.5 px-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
               >
-                <AlertTriangle size={15} />
-                <span>{stats.changed} Değişiklik Uyarısı</span>
+                <AlertTriangle size={14} />
+                <span>{stats.changed} Güncellenen Talep</span>
               </button>
             )}
 
@@ -2276,23 +2277,20 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* 7-DAY ADVANCE NOTICE REMINDER */}
+                          {/* 7-DAY ADVANCE NOTICE REMINDER (COMPACT & SUBTLE) */}
                           {formData.tarih && (() => {
                             const diffDays = getDaysUntilEvent(formData.tarih);
-                            if (diffDays === null || diffDays >= 7) return null;
-                            return (
-                              <div className="mb-3 p-3 bg-amber-50 border border-amber-200/90 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 animate-fade-in">
-                                <span className="text-base shrink-0 mt-0.5">⚠️</span>
-                                <div>
-                                  <strong className="font-bold block text-amber-950">
-                                    Hatırlatma: Etkinliğe {diffDays <= 0 ? '1 günden az süre kaldı' : `${diffDays} gün kaldı`}!
-                                  </strong>
-                                  <span className="text-[11px] text-amber-800 leading-relaxed block mt-0.5">
-                                    Taleplerin etkinlik tarihinden en geç <strong>7 gün önce</strong> yapılması önerilir. Sürecin zamanında yetişebilmesi için lütfen aciliyetini not alanında belirtiniz.
+                            if (diffDays !== null && diffDays < 7) {
+                              return (
+                                <div className="mb-3 px-3 py-2 bg-amber-50/90 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center gap-2">
+                                  <span className="text-sm shrink-0">⏰</span>
+                                  <span className="text-[11px] leading-snug">
+                                    <strong>Hatırlatma:</strong> Etkinliğe {diffDays <= 0 ? '1 günden az' : `${diffDays} gün`} kaldı. Tasarımın yetişmesi için taleplerin en az 7 gün önce yapılması önerilir.
                                   </span>
                                 </div>
-                              </div>
-                            );
+                              );
+                            }
+                            return null;
                           })()}
 
                           <div>
@@ -2336,7 +2334,7 @@ export default function App() {
                               </label>
 
                               {/* Questions tags */}
-                              <div className="flex flex-wrap gap-1.5 mb-2.5 p-2.5 bg-white rounded-xl border border-emerald-200 min-h-[48px] items-center">
+                              <div className="flex flex-wrap gap-1.5 mb-2.5 p-2 bg-white rounded-xl border border-emerald-200 min-h-[44px] items-center">
                                 {formQuestions.map((q, idx) => (
                                   <span
                                     key={idx}
@@ -2355,12 +2353,12 @@ export default function App() {
                                   </span>
                                 ))}
                                 {formQuestions.length === 0 && (
-                                  <span className="text-xs text-slate-400 italic">Henüz soru eklenmedi.</span>
+                                  <span className="text-xs text-slate-400 italic px-1">Henüz soru eklenmedi.</span>
                                 )}
                               </div>
 
-                              {/* Add question input */}
-                              <div className="flex items-center gap-2">
+                              {/* Add question input (Robustly nested button that NEVER overflows) */}
+                              <div className="relative flex items-center w-full min-w-0">
                                 <input
                                   type="text"
                                   value={newQuestionInput}
@@ -2374,8 +2372,8 @@ export default function App() {
                                       }
                                     }
                                   }}
-                                  placeholder="Yeni soru yazın (Örn: Kan Grubu, Oturulan İlçe)…"
-                                  className="flex-1 min-h-[42px] px-3.5 py-2 bg-white border border-emerald-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                                  placeholder="Yeni soru yazın (Örn: İlçe, Yaş)…"
+                                  className="w-full min-w-0 min-h-[42px] pl-3.5 pr-20 py-2 bg-white border border-emerald-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-slate-800"
                                 />
                                 <button
                                   type="button"
@@ -2385,7 +2383,7 @@ export default function App() {
                                       setNewQuestionInput('');
                                     }
                                   }}
-                                  className="min-h-[42px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1 shrink-0"
+                                  className="absolute right-1 top-1/2 -translate-y-1/2 h-[34px] px-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1 shrink-0 shadow-xs"
                                 >
                                   <Plus size={14} /> Ekle
                                 </button>
@@ -2606,426 +2604,210 @@ export default function App() {
               </div>
             </div>
           ) : (
-            /* REQUESTS LIST (RESPONSIVE GRID & CARDS) */
             <div>
-              {/* Mobile Horizontal Swipeable Status Pills (< sm) */}
-              {isAdmin && (
-                <div className="sm:hidden no-scrollbar flex items-center gap-2 overflow-x-auto pb-1 mb-3 -mx-4 px-4">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTab('all')}
-                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
-                      activeTab === 'all'
-                        ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    <span>📋 Tümü</span>
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                      {stats.total}
-                    </span>
-                  </button>
+              {/* ── COMPACT & MINIMAL MOBILE-FIRST TOOLBAR & FILTER BAR ── */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-4 mb-4 shadow-xs space-y-2.5">
+                {/* Search & Sort Controls */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1 min-w-0">
+                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      placeholder="Etkinlik, ekip veya mekan ara…"
+                      className="w-full min-h-[40px] pl-9 pr-8 py-2 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 placeholder:text-slate-400 transition-colors"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
 
-                  {/* Form Requests Pill */}
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTab('forms')}
-                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
-                      activeTab === 'forms'
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                        : stats.formsWaiting > 0
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                        : 'bg-white text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    <span>📝 Formlar</span>
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'forms' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
-                      {stats.formsTotal}
-                    </span>
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <select
+                      value={sortBy}
+                      onChange={e => setSortBy(e.target.value as 'created' | 'event')}
+                      className="min-h-[40px] px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                    >
+                      <option value="created">Talep Tarihi</option>
+                      <option value="event">Etkinlik Tarihi</option>
+                    </select>
 
-                  {/* Red Warning Pill for Changed Requests */}
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTab('changed')}
-                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
-                      activeTab === 'changed'
-                        ? 'bg-red-600 text-white border-red-600 shadow-sm ring-2 ring-red-300'
-                        : stats.changed > 0
-                        ? 'bg-red-50 text-red-700 border-red-300 animate-pulse'
-                        : 'bg-white text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    <span>🚨 Değişenler</span>
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'changed' ? 'bg-white/20 text-white' : stats.changed > 0 ? 'bg-red-600 text-white font-black' : 'bg-slate-100 text-slate-700'}`}>
-                      {stats.changed}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTab('talep-alindi')}
-                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
-                      activeTab === 'talep-alindi'
-                        ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    <span>📥 Alındı</span>
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'talep-alindi' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                      {stats.alindi}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTab('tasarimda')}
-                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
-                      activeTab === 'tasarimda'
-                        ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    <span>🎨 Tasarım</span>
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'tasarimda' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                      {stats.tasarimda}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTab('merkez-onayinda')}
-                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
-                      activeTab === 'merkez-onayinda'
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    <span>🔍 Onayda</span>
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'merkez-onayinda' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                      {stats.merkez}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTab('yayinlandi')}
-                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 border ${
-                      activeTab === 'yayinlandi'
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    <span>✅ Yayınlandı</span>
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === 'yayinlandi' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                      {stats.yayinlandi}
-                    </span>
-                  </button>
-                </div>
-              )}
-
-              {/* Desktop & Tablet Stats Grid (>= sm) */}
-              <div className={`hidden sm:grid ${isAdmin ? 'sm:grid-cols-3 lg:grid-cols-7' : 'sm:grid-cols-2 lg:grid-cols-4'} gap-2.5 sm:gap-3.5 mb-6 sm:mb-8`}>
-                <div
-                  onClick={() => handleSelectTab('all')}
-                  className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden cursor-pointer transition-all ${
-                    activeTab === 'all' ? 'border-violet-500 ring-2 ring-violet-500/10' : 'border-slate-200/80 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-violet-600 to-indigo-600" />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xl sm:text-2xl font-black text-violet-700">{stats.total}</p>
-                      <p className="text-[11px] sm:text-xs font-semibold text-slate-400">Toplam</p>
-                    </div>
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center text-sm sm:text-base">
-                      📋
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                      className="min-h-[40px] min-w-[40px] px-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors"
+                      title={sortOrder === 'desc' ? 'Yeniden Eskiye' : 'Eskiden Yeniye'}
+                    >
+                      {sortOrder === 'desc' ? '↓' : '↑'}
+                    </button>
                   </div>
                 </div>
 
-                {/* Form Requests Card */}
-                <div
-                  onClick={() => handleSelectTab('forms')}
-                  className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all cursor-pointer ${
-                    activeTab === 'forms'
-                      ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/20'
-                      : stats.formsWaiting > 0
-                      ? 'border-emerald-300 hover:border-emerald-400'
-                      : 'border-slate-200/80 hover:border-slate-300'
-                  }`}
-                >
-                  <div className={`absolute top-0 left-0 right-0 h-1 ${stats.formsWaiting > 0 ? 'bg-emerald-500' : 'bg-emerald-400'}`} />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-xl sm:text-2xl font-black text-emerald-700">{stats.formsTotal}</p>
-                        {stats.formsWaiting > 0 && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                            {stats.formsWaiting} bekliyor
+                {/* Unified Horizontal Swipeable Filter Chips */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1">
+                  {/* Type Filters */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTypeFilter('all');
+                      if (activeTab === 'forms' || activeTab === 'changed') setActiveTab(isAdmin ? 'all' : 'requests');
+                    }}
+                    className={`shrink-0 min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                      typeFilter === 'all' && activeTab !== 'changed' && activeTab !== 'forms' && activeTab === (isAdmin ? 'all' : 'requests')
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>Tümü</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      typeFilter === 'all' && activeTab !== 'changed' && activeTab !== 'forms' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      {typeCounts.all}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTypeFilter('afis');
+                      if (activeTab === 'forms') setActiveTab(isAdmin ? 'all' : 'requests');
+                    }}
+                    className={`shrink-0 min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                      typeFilter === 'afis'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/60'
+                    }`}
+                  >
+                    <span>🎨 Afiş</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      typeFilter === 'afis' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-800'
+                    }`}>
+                      {typeCounts.afis}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTypeFilter('form');
+                    }}
+                    className={`shrink-0 min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                      typeFilter === 'form'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/60'
+                    }`}
+                  >
+                    <span>📝 Form</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      typeFilter === 'form' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-900'
+                    }`}>
+                      {typeCounts.form}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTypeFilter('hepsi');
+                    }}
+                    className={`shrink-0 min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                      typeFilter === 'hepsi'
+                        ? 'bg-violet-600 text-white shadow-xs'
+                        : 'bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200/60'
+                    }`}
+                  >
+                    <span>✨ Afiş+Form</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      typeFilter === 'hepsi' ? 'bg-white/20 text-white' : 'bg-violet-100 text-violet-800'
+                    }`}>
+                      {typeCounts.hepsi}
+                    </span>
+                  </button>
+
+                  {/* Status Filters for Admin */}
+                  {isAdmin && (
+                    <>
+                      <div className="h-4 w-[1px] bg-slate-200 shrink-0 mx-0.5" />
+
+                      {stats.changed > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTab(activeTab === 'changed' ? 'all' : 'changed')}
+                          className={`shrink-0 min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                            activeTab === 'changed'
+                              ? 'bg-amber-600 text-white shadow-xs'
+                              : 'bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100'
+                          }`}
+                        >
+                          <span>⚠️ Değişen</span>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                            activeTab === 'changed' ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-900'
+                          }`}>
+                            {stats.changed}
                           </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] sm:text-xs font-semibold text-slate-500">Form Talebi</p>
-                    </div>
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-sm sm:text-base">
-                      📝
-                    </div>
-                  </div>
-                </div>
+                        </button>
+                      )}
 
-                {isAdmin && (
-                  <div
-                    onClick={() => handleSelectTab('changed')}
-                    className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all cursor-pointer ${
-                      activeTab === 'changed'
-                        ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30'
-                        : stats.changed > 0
-                        ? 'border-red-300 bg-red-50/40 hover:border-red-400'
-                        : 'border-slate-200/80 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className={`absolute top-0 left-0 right-0 h-1 ${stats.changed > 0 ? 'bg-red-600 animate-pulse' : 'bg-slate-300'}`} />
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className={`text-xl sm:text-2xl font-black ${stats.changed > 0 ? 'text-red-600' : 'text-slate-400'}`}>
-                          {stats.changed}
-                        </p>
-                        <p className="text-[11px] sm:text-xs font-semibold text-slate-500">Değiştirilen</p>
-                      </div>
-                      <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-sm sm:text-base ${
-                        stats.changed > 0 ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-400'
-                      }`}>
-                        🚨
-                      </div>
-                    </div>
-                  </div>
-                )}
+                      <button
+                        type="button"
+                        onClick={() => handleSelectTab(activeTab === 'talep-alindi' ? 'all' : 'talep-alindi')}
+                        className={`shrink-0 min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                          activeTab === 'talep-alindi'
+                            ? 'bg-slate-700 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        <span>📥 Alındı</span>
+                        <span className="text-[10px] opacity-75 font-bold">({stats.alindi})</span>
+                      </button>
 
-                <div
-                  onClick={() => isAdmin && handleSelectTab('talep-alindi')}
-                  className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all ${
-                    isAdmin ? 'cursor-pointer' : ''
-                  } ${
-                    activeTab === 'talep-alindi' ? 'border-slate-500 ring-2 ring-slate-500/10' : 'border-slate-200/80 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-slate-400" />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xl sm:text-2xl font-black text-slate-700">{stats.alindi}</p>
-                      <p className="text-[11px] sm:text-xs font-semibold text-slate-400">Talep Alındı</p>
-                    </div>
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-sm sm:text-base">
-                      📥
-                    </div>
-                  </div>
-                </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectTab(activeTab === 'tasarimda' ? 'all' : 'tasarimda')}
+                        className={`shrink-0 min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                          activeTab === 'tasarimda'
+                            ? 'bg-amber-500 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        <span>🎨 Tasarım</span>
+                        <span className="text-[10px] opacity-75 font-bold">({stats.tasarimda})</span>
+                      </button>
 
-                <div
-                  onClick={() => isAdmin && handleSelectTab('tasarimda')}
-                  className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all ${
-                    isAdmin ? 'cursor-pointer' : ''
-                  } ${
-                    activeTab === 'tasarimda' ? 'border-amber-500 ring-2 ring-amber-500/10' : 'border-slate-200/80 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xl sm:text-2xl font-black text-amber-600">{stats.tasarimda}</p>
-                      <p className="text-[11px] sm:text-xs font-semibold text-slate-400">Tasarımda</p>
-                    </div>
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-sm sm:text-base">
-                      🎨
-                    </div>
-                  </div>
-                </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectTab(activeTab === 'merkez-onayinda' ? 'all' : 'merkez-onayinda')}
+                        className={`shrink-0 min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                          activeTab === 'merkez-onayinda'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        <span>🔍 Onayda</span>
+                        <span className="text-[10px] opacity-75 font-bold">({stats.merkez})</span>
+                      </button>
 
-                <div
-                  onClick={() => isAdmin && handleSelectTab('merkez-onayinda')}
-                  className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all ${
-                    isAdmin ? 'cursor-pointer' : ''
-                  } ${
-                    activeTab === 'merkez-onayinda' ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-slate-200/80 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-blue-600" />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xl sm:text-2xl font-black text-blue-600">{stats.merkez}</p>
-                      <p className="text-[11px] sm:text-xs font-semibold text-slate-400">Merkez Onayı</p>
-                    </div>
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm sm:text-base">
-                      🔍
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  onClick={() => isAdmin && handleSelectTab('yayinlandi')}
-                  className={`bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs relative overflow-hidden transition-all ${
-                    isAdmin ? 'cursor-pointer' : ''
-                  } ${
-                    activeTab === 'yayinlandi' ? 'border-emerald-500 ring-2 ring-emerald-500/10' : 'border-slate-200/80 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xl sm:text-2xl font-black text-emerald-600">{stats.yayinlandi}</p>
-                      <p className="text-[11px] sm:text-xs font-semibold text-slate-400">Yayınlandı</p>
-                    </div>
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm sm:text-base">
-                      ✅
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Request Type Selector Filter Bar (Mobile-first Horizontal Scrollable) */}
-              <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-4 mb-3 sm:mb-4 shadow-xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1 sm:mx-0 sm:px-0">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1 hidden sm:inline">
-                      Tür:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTypeFilter('all');
-                      }}
-                      className={`shrink-0 min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
-                        typeFilter === 'all'
-                          ? 'bg-slate-900 text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      <span>Tüm Talepler</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        typeFilter === 'all' ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
-                      }`}>
-                        {typeCounts.all}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTypeFilter('afis');
-                        if (activeTab === 'forms') {
-                          setActiveTab(isAdmin ? 'all' : 'requests');
-                        }
-                      }}
-                      className={`shrink-0 min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
-                        typeFilter === 'afis'
-                          ? 'bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-200'
-                          : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/60'
-                      }`}
-                    >
-                      <span>🎨 Sadece Afiş</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        typeFilter === 'afis' ? 'bg-white/25 text-white' : 'bg-indigo-100 text-indigo-800'
-                      }`}>
-                        {typeCounts.afis}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTypeFilter('form');
-                      }}
-                      className={`shrink-0 min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
-                        typeFilter === 'form'
-                          ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-200'
-                          : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/60'
-                      }`}
-                    >
-                      <span>📝 Sadece Form</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        typeFilter === 'form' ? 'bg-white/25 text-white' : 'bg-emerald-100 text-emerald-900'
-                      }`}>
-                        {typeCounts.form}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTypeFilter('hepsi');
-                      }}
-                      className={`shrink-0 min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
-                        typeFilter === 'hepsi'
-                          ? 'bg-violet-600 text-white shadow-xs ring-2 ring-violet-200'
-                          : 'bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200/60'
-                      }`}
-                    >
-                      <span>✨ Afiş + Form</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        typeFilter === 'hepsi' ? 'bg-white/25 text-white' : 'bg-violet-100 text-violet-800'
-                      }`}>
-                        {typeCounts.hepsi}
-                      </span>
-                    </button>
-                  </div>
-
-                  <div className="text-xs text-slate-500 font-medium flex items-center justify-between sm:justify-end gap-2 pt-1 sm:pt-0 border-t border-slate-100 sm:border-0">
-                    <span className="text-[11px] text-slate-400">Gösterilen:</span>
-                    <span>
-                      <strong className="text-slate-800 font-bold">{filteredRequests.length}</strong> / {requests.length} kayıt
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Responsive Filter and Search Bar */}
-              <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-4 mb-4 sm:mb-6 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-4">
-                <div className="relative w-full sm:max-w-xs">
-                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Etkinlik, ekip veya form ara…"
-                    className="w-full min-h-[44px] pl-9 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 placeholder:text-slate-400"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-                    >
-                      <X size={14} />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectTab(activeTab === 'yayinlandi' ? 'all' : 'yayinlandi')}
+                        className={`shrink-0 min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                          activeTab === 'yayinlandi'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        <span>✅ Yayınlandı</span>
+                        <span className="text-[10px] opacity-75 font-bold">({stats.yayinlandi})</span>
+                      </button>
+                    </>
                   )}
-                </div>
-
-                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                  <div className="flex rounded-xl bg-slate-100 p-0.5 border border-slate-200/60 flex-1 sm:flex-none">
-                    <button
-                      onClick={() => setSortBy('created')}
-                      className={`flex-1 sm:flex-none min-h-[36px] px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
-                        sortBy === 'created' ? 'bg-white text-violet-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      Talep Tarihine Göre
-                    </button>
-                    <button
-                      onClick={() => setSortBy('event')}
-                      className={`flex-1 sm:flex-none min-h-[36px] px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
-                        sortBy === 'event' ? 'bg-white text-violet-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      Etkinlik Tarihine Göre
-                    </button>
-                  </div>
-
-                  <select
-                    value={sortOrder}
-                    onChange={e => setSortOrder(e.target.value as 'desc' | 'asc')}
-                    className="min-h-[38px] px-2.5 sm:px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
-                  >
-                    <option value="desc">En Yeni Önce</option>
-                    <option value="asc">En Eski Önce</option>
-                  </select>
                 </div>
               </div>
 
@@ -3069,46 +2851,45 @@ export default function App() {
                         onClick={() => setSelectedRequest(req)}
                         className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4 ${
                           isAdmin && hasUnseenChanges
-                            ? 'border-red-300 border-l-4 border-l-red-600 bg-red-50/20 ring-2 ring-red-400/40 shadow-sm'
+                            ? 'border-amber-300 border-l-4 border-l-amber-500 bg-amber-50/20 shadow-xs'
                             : `border-slate-200/80 border-l-4 ${cfg.borderColor}`
                         }`}
                       >
                         <div className="flex-1 min-w-0 w-full">
-                          {/* UNSEEN USER CHANGES RED ALERT BANNER (ONLY FOR ADMIN) */}
+                          {/* UNSEEN USER CHANGES ALERT STRIP (ONLY FOR ADMIN) */}
                           {isAdmin && hasUnseenChanges && (
-                            <div className="mb-2.5 p-2 sm:p-2.5 rounded-xl bg-red-600 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs animate-pulse">
-                              <div className="flex items-center gap-1.5 text-xs font-black">
-                                <AlertTriangle size={15} className="shrink-0" />
-                                <span>🚨 DİKKAT: KULLANICI DEĞİŞİKLİK YAPTI!</span>
+                            <div className="mb-2.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-sm shrink-0">✏️</span>
+                                <div className="text-xs">
+                                  <strong className="font-bold">Kullanıcı Güncelleme Yaptı:</strong>{' '}
+                                  <span className="text-amber-800 text-[11px]">
+                                    {req.userChangesNote ? `"${req.userChangesNote}"` : 'Talebin detayları güncellendi.'}
+                                  </span>
+                                </div>
                               </div>
-                              {req.userChangesNote && (
-                                <span className="text-[11px] font-semibold text-red-100 truncate max-w-xs">
-                                  Not: "{req.userChangesNote}"
-                                </span>
-                              )}
+                              <button
+                                type="button"
+                                disabled={acknowledgingId === req.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAcknowledgeChange(req.id);
+                                }}
+                                className="min-h-[30px] px-3 py-1 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white text-xs font-bold rounded-lg transition-transform flex items-center gap-1 self-start sm:self-auto shrink-0 shadow-xs"
+                                title="Değişikliği onayla ve uyarıyı kaldır"
+                              >
+                                <Check size={13} />
+                                <span>{acknowledgingId === req.id ? '…' : 'Onayla'}</span>
+                              </button>
                             </div>
                           )}
 
-                          {/* USER NOTIFICATION PILL (ONLY FOR REGULAR USER - CALM STATUS) */}
-                          {!isAdmin && req.hasUserChanges && (
-                            !req.adminAcknowledgedChange ? (
-                              <div className="mb-2.5 p-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 flex items-center justify-between gap-2 text-xs">
-                                <div className="flex items-center gap-1.5 font-semibold">
-                                  <span>ℹ️</span>
-                                  <span>Yaptığınız değişiklik yöneticiye iletildi, inceleniyor.</span>
-                                </div>
-                                {req.userChangesNote && (
-                                  <span className="text-[11px] text-blue-700 italic truncate max-w-xs">
-                                    "{req.userChangesNote}"
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="mb-2.5 p-1.5 px-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-1.5 text-xs font-semibold">
-                                <CheckCircle2 size={13} className="text-emerald-600" />
-                                <span>Yaptığınız değişiklik yönetici tarafından onaylandı.</span>
-                              </div>
-                            )
+                          {/* USER NOTIFICATION PILL (ONLY FOR REGULAR USER WHILE PENDING) */}
+                          {!isAdmin && req.hasUserChanges && !req.adminAcknowledgedChange && (
+                            <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 flex items-center gap-2 text-xs font-medium">
+                              <span className="text-sm shrink-0">⏳</span>
+                              <span>Düzenlemeniz kaydedildi ve yönetici incelemesine iletildi.</span>
+                            </div>
                           )}
 
                           {/* Header row with badges & dates */}
@@ -3143,25 +2924,17 @@ export default function App() {
 
                             {/* Status badge for change */}
                             {isAdmin ? (
-                              req.hasUserChanges && (
-                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 ${
-                                  hasUnseenChanges
-                                    ? 'bg-red-100 text-red-700 border border-red-200'
-                                    : 'bg-slate-100 text-slate-600'
-                                }`}>
+                              hasUnseenChanges && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 bg-amber-100 text-amber-800 border border-amber-200">
                                   <span>✏️</span>
-                                  <span>{hasUnseenChanges ? 'Yeni Değişiklik' : 'Düzenlendi (Onaylı)'}</span>
+                                  <span>Düzenlendi</span>
                                 </span>
                               )
                             ) : (
-                              req.hasUserChanges && (
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
-                                  !req.adminAcknowledgedChange
-                                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                }`}>
-                                  <span>{!req.adminAcknowledgedChange ? '⏳' : '✓'}</span>
-                                  <span>{!req.adminAcknowledgedChange ? 'İletildi' : 'Onaylandı'}</span>
+                              req.hasUserChanges && !req.adminAcknowledgedChange && (
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-md flex items-center gap-1 bg-sky-100 text-sky-800 border border-sky-200">
+                                  <span>⏳</span>
+                                  <span>İncelemede</span>
                                 </span>
                               )
                             )}
@@ -3368,22 +3141,6 @@ export default function App() {
                             )
                           )}
 
-                          {/* ADMIN QUICK APPROVE BUTTON: Stops red warning */}
-                          {isAdmin && hasUnseenChanges && (
-                            <button
-                              type="button"
-                              disabled={acknowledgingId === req.id}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAcknowledgeChange(req.id);
-                              }}
-                              className="min-h-[34px] px-2.5 py-1 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs transition-transform flex items-center gap-1 shrink-0"
-                              title="Değişikliği Onayla ve Kırmızı Uyarıyı Kaldır"
-                            >
-                              <Check size={13} />
-                              <span>{acknowledgingId === req.id ? '…' : 'Onayla'}</span>
-                            </button>
-                          )}
 
                           {isAdmin && (
                             <button
@@ -3584,81 +3341,61 @@ export default function App() {
 
             {/* Modal Content */}
             <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1">
-              {/* ADMIN VIEW: UNSEEN USER CHANGES RED ALERT BOX */}
+              {/* ADMIN VIEW: UNSEEN USER CHANGES ALERT BOX */}
               {isAdmin && selectedRequest.hasUserChanges && !selectedRequest.adminAcknowledgedChange && (
-                <div className="bg-red-600 text-white rounded-2xl p-4 sm:p-5 shadow-lg border border-red-700 space-y-2.5 animate-pulse">
+                <div className="bg-amber-50 border border-amber-300 text-amber-950 rounded-2xl p-4 sm:p-5 space-y-2.5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle size={22} className="shrink-0 text-white" />
-                      <span className="font-black text-sm sm:text-base leading-tight">
-                        🚨 DİKKAT: TALEP SAHİBİ DEĞİŞİKLİK YAPTI!
+                      <span className="text-xl">✏️</span>
+                      <span className="font-bold text-sm sm:text-base">
+                        Kullanıcı Talepte Değişiklik Yaptı
                       </span>
                     </div>
                     <button
                       type="button"
                       disabled={acknowledgingId === selectedRequest.id}
                       onClick={() => handleAcknowledgeChange(selectedRequest.id)}
-                      className="px-3.5 py-2 bg-white text-red-700 hover:bg-red-50 active:scale-95 text-xs font-black rounded-xl shadow-xs transition-transform shrink-0 flex items-center gap-1.5"
+                      className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition-transform shrink-0 flex items-center gap-1.5 self-start sm:self-auto"
                     >
-                      <Check size={14} className="text-red-700" />
-                      <span>{acknowledgingId === selectedRequest.id ? 'Onaylanıyor…' : '✓ Değişikliği Onayla (Uyarıyı Kapat)'}</span>
+                      <Check size={14} />
+                      <span>{acknowledgingId === selectedRequest.id ? 'Onaylanıyor…' : '✓ Değişikliği Onayla'}</span>
                     </button>
                   </div>
-                  <p className="text-xs text-red-100 font-medium leading-relaxed">
-                    Kullanıcı bu talepte sonradan değişiklik yapmıştır. Güncellenen bilgileri kontrol edip butona tıklayarak kırmızı uyarıyı kaldırabilirsiniz.
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    Kullanıcı etkinlik detaylarında güncelleme yaptı. Güncellenen bilgileri kontrol ettikten sonra onaylayarak bu uyarıyı kapatabilirsiniz.
                   </p>
                   {selectedRequest.userChangesNote && (
-                    <div className="bg-red-700/90 p-3 rounded-xl text-xs font-semibold text-white border border-red-500/60">
-                      <span className="font-bold text-red-200 block text-[10px] uppercase tracking-wider mb-0.5">
-                        Kullanıcının Değişiklik Notu:
+                    <div className="bg-white/80 p-2.5 rounded-xl text-xs font-medium text-amber-950 border border-amber-200">
+                      <span className="font-bold text-amber-900 block text-[10px] uppercase tracking-wider mb-0.5">
+                        Kullanıcının Notu:
                       </span>
                       "{selectedRequest.userChangesNote}"
                     </div>
                   )}
                   {selectedRequest.lastUserChangeAt && (
-                    <div className="text-[11px] text-red-200 font-medium">
-                      Son Değiştirilme Zamanı: {formatDateTime(selectedRequest.lastUserChangeAt)}
+                    <div className="text-[11px] text-amber-700">
+                      Son Değiştirilme: {formatDateTime(selectedRequest.lastUserChangeAt)}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* ADMIN VIEW: ALREADY APPROVED NOTE */}
-              {isAdmin && selectedRequest.hasUserChanges && selectedRequest.adminAcknowledgedChange && (
-                <div className="bg-slate-100 border border-slate-200 rounded-xl p-3 text-xs text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-                    <span>Bu talepteki kullanıcı değişikliği incelenip onaylanmıştır.</span>
-                  </div>
-                  {selectedRequest.userChangesNote && (
-                    <span className="text-[11px] text-slate-500 italic truncate max-w-xs">"{selectedRequest.userChangesNote}"</span>
-                  )}
-                </div>
-              )}
-
-              {/* USER VIEW: CALM STATUS (ONLY TELLS USER THAT CHANGE WAS SENT TO ADMIN) */}
-              {currentUser.role === 'user' && selectedRequest.hasUserChanges && (
-                !selectedRequest.adminAcknowledgedChange ? (
-                  <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-xs text-blue-900 flex items-start gap-2.5">
-                    <span className="text-base shrink-0 mt-0.5">ℹ️</span>
-                    <div>
-                      <strong className="block text-blue-950 font-bold">Değişikliğiniz Yöneticiye İletildi</strong>
-                      <p className="text-[11px] text-blue-800 mt-0.5 leading-relaxed">
-                        Yaptığınız düzenleme admin paneline iletilmiştir. Tasarım ve form ekibi güncel bilgileri inceleyecektir.
+              {/* USER VIEW: SUBTLE PENDING NOTE ONLY WHILE UNAPPROVED */}
+              {!isAdmin && selectedRequest.hasUserChanges && !selectedRequest.adminAcknowledgedChange && (
+                <div className="bg-sky-50 border border-sky-200 rounded-2xl p-3.5 text-xs text-sky-900 flex items-start gap-2.5">
+                  <span className="text-base shrink-0 mt-0.5">⏳</span>
+                  <div>
+                    <strong className="block text-sky-950 font-bold">Düzenlemeniz İnceleniyor</strong>
+                    <p className="text-[11px] text-sky-800 mt-0.5 leading-relaxed">
+                      Yaptığınız değişiklikler yönetici onayına sunulmuştur.
+                    </p>
+                    {selectedRequest.userChangesNote && (
+                      <p className="text-[11px] text-sky-700 italic mt-1">
+                        Notunuz: "{selectedRequest.userChangesNote}"
                       </p>
-                      {selectedRequest.userChangesNote && (
-                        <p className="text-[11px] text-blue-700 italic mt-1 font-semibold">
-                          İlettiğiniz Not: "{selectedRequest.userChangesNote}"
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-xs text-emerald-800 flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-                    <span className="font-semibold">Yaptığınız değişiklik yönetici tarafından incelenip onaylanmıştır.</span>
-                  </div>
-                )
+                </div>
               )}
 
               {/* CRITICAL: PROMINENT GOOGLE FORM SECTION (VISIBLE TO ALL ROLES) */}
@@ -4274,21 +4011,16 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 7-DAY ADVANCE NOTICE REMINDER IN EDIT MODAL */}
+              {/* 7-DAY ADVANCE NOTICE REMINDER IN EDIT MODAL (COMPACT & SUBTLE) */}
               {editFormData.tarih && (() => {
                 const diffDays = getDaysUntilEvent(editFormData.tarih);
                 if (diffDays === null || diffDays >= 7) return null;
                 return (
-                  <div className="p-3 bg-amber-50 border border-amber-200/90 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 animate-fade-in">
-                    <span className="text-base shrink-0 mt-0.5">⚠️</span>
-                    <div>
-                      <strong className="font-bold block text-amber-950">
-                        Hatırlatma: Etkinliğe {diffDays <= 0 ? '1 günden az süre kaldı' : `${diffDays} gün kaldı`}!
-                      </strong>
-                      <span className="text-[11px] text-amber-800 leading-relaxed block mt-0.5">
-                        Taleplerin en geç etkinlik tarihinden <strong>7 gün önce</strong> yapılması önerilir. Sürecin zamanında yetişebilmesi için lütfen aciliyetini aşağıdaki notta belirtiniz.
-                      </span>
-                    </div>
+                  <div className="px-3 py-2 bg-amber-50/90 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center gap-2">
+                    <span className="text-sm shrink-0">⏰</span>
+                    <span className="text-[11px] leading-snug">
+                      <strong>Hatırlatma:</strong> Etkinliğe {diffDays <= 0 ? '1 günden az' : `${diffDays} gün`} kaldı. Tasarımın yetişmesi için taleplerin en az 7 gün önce yapılması önerilir.
+                    </span>
                   </div>
                 );
               })()}
@@ -4355,7 +4087,8 @@ export default function App() {
                       ))}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    {/* Question Adder with Robust Nested Button (No overflow) */}
+                    <div className="relative flex items-center w-full min-w-0">
                       <input
                         type="text"
                         value={editNewQuestionInput}
@@ -4370,7 +4103,7 @@ export default function App() {
                           }
                         }}
                         placeholder="Yeni soru ekleyin…"
-                        className="flex-1 min-h-[40px] px-3 bg-white border border-emerald-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                        className="w-full min-w-0 min-h-[42px] pl-3.5 pr-20 py-2 bg-white border border-emerald-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-slate-800"
                       />
                       <button
                         type="button"
@@ -4380,7 +4113,7 @@ export default function App() {
                             setEditNewQuestionInput('');
                           }
                         }}
-                        className="min-h-[40px] px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shrink-0"
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[32px] px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1 shadow-xs"
                       >
                         <Plus size={13} /> Ekle
                       </button>
@@ -4415,20 +4148,17 @@ export default function App() {
                 />
               </div>
 
-              {/* Specific Change Note for Admin */}
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-                <label className="block text-xs font-bold text-amber-900 uppercase tracking-wider mb-1">
-                  📢 Neyi Değiştirdiniz? (Yönetici Notu)
+              {/* Specific Change Note for Admin (Calm and Optional) */}
+              <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Değişiklik Notu <span className="text-[10px] text-slate-400 font-normal lowercase">(isteğe bağlı)</span>
                 </label>
-                <p className="text-[11px] text-amber-700 mb-2">
-                  Yöneticinin değişikliği hızlıca fark edebilmesi için neyi güncellediğinizi kısaca belirtin.
-                </p>
                 <input
                   type="text"
                   value={editFormData.userChangesNote}
                   onChange={e => setEditFormData({ ...editFormData, userChangesNote: e.target.value })}
-                  placeholder="Örn: Etkinlik tarihi ertelendi / Mekan salon 2 olarak güncellendi"
-                  className="w-full min-h-[42px] px-3 py-2 bg-white border border-amber-300 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                  placeholder="Örn: Etkinlik tarihi veya mekan güncellendi"
+                  className="w-full min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                 />
               </div>
 
