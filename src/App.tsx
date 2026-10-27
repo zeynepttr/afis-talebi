@@ -507,7 +507,7 @@ export default function App() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 4. LOGIN HANDLER
+  // 4. LOGIN HANDLER (GÜVENLİ KİMLİK DOĞRULAMA)
   // ─────────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -520,85 +520,11 @@ export default function App() {
     setAuthError(null);
 
     try {
-      let matchedUser: AppUser | null = null;
+      const email = toEmail(uname);
+      let authenticatedUser: AppUser | null = null;
+
+      // 1. Önce doğrudan Firebase Authentication ile güvenli giriş dene
       try {
-        const usersSnap = await rtdbGet(rtdbRef(rtdb, 'users'));
-        if (usersSnap.exists()) {
-          const allUsers = usersSnap.val();
-          for (const uid of Object.keys(allUsers)) {
-            const u = allUsers[uid];
-            if (u.username?.toLowerCase() === uname || (u.email && u.email.toLowerCase() === uname)) {
-              if (!u.password || u.password === pass) {
-                const parsedRole: UserRole =
-                  u.role === 'admin' || u.role === 'admin_afis' || u.role === 'admin_form'
-                    ? u.role
-                    : (typeof u.role === 'string' && u.role.toLowerCase().includes('admin')
-                        ? 'admin'
-                        : (u.username && (u.username.toLowerCase().includes('zeynep') || u.username.toLowerCase().includes('admin')) ? 'admin_afis' : 'user'));
-                matchedUser = {
-                  uid,
-                  name: u.name,
-                  username: u.username,
-                  role: parsedRole,
-                  createdAt: u.createdAt
-                };
-                break;
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("RTDB search warning:", err);
-      }
-
-      // Built-in initial role fallback for instant access & testing
-      if (!matchedUser) {
-        if ((uname === 'zeynep' || uname === 'zeyneptatar' || uname === 'zeyneptatar71' || uname.startsWith('zeyneptatar71@')) && (pass === '123456' || pass === 'zeynep123' || pass === 'admin123')) {
-          matchedUser = {
-            uid: 'admin-afis-zeynep',
-            name: 'Zeynep Tatar (Afiş Yöneticisi)',
-            username: uname,
-            role: 'admin_afis',
-            createdAt: Date.now()
-          };
-        } else if (uname === 'adminokur' && (pass === '123456' || pass === 'admin123')) {
-          matchedUser = {
-            uid: 'admin-form-okur',
-            name: 'Adminokur (Form Yöneticisi)',
-            username: uname,
-            role: 'admin_form',
-            createdAt: Date.now()
-          };
-        } else if (uname === 'admin' && (pass === 'admin123' || pass === '123456')) {
-          matchedUser = {
-            uid: 'admin-genel',
-            name: 'Genel Sistem Yöneticisi',
-            username: uname,
-            role: 'admin',
-            createdAt: Date.now()
-          };
-        } else if (uname === 'ahmet' && (pass === '123456' || pass === 'ahmet123')) {
-          matchedUser = {
-            uid: 'user-demo-1',
-            name: 'Ahmet Yılmaz (Gönüllü)',
-            username: uname,
-            role: 'user',
-            createdAt: Date.now()
-          };
-        }
-      }
-
-      if (matchedUser) {
-        setCurrentUser(matchedUser);
-        const isMatchedAdmin = matchedUser.role !== 'user';
-        setActiveTab(isMatchedAdmin ? 'all' : 'requests');
-        showToast(`Hoş geldiniz, ${matchedUser.name}! 👋`, 'success');
-        setLoginLoading(false);
-        return;
-      }
-
-      try {
-        const email = toEmail(uname);
         const cred = await signInWithEmailAndPassword(auth, email, pass);
         const snap = await rtdbGet(rtdbChild(rtdbRef(rtdb), `users/${cred.user.uid}`));
         const uData = snap.exists() ? snap.val() : {};
@@ -610,28 +536,66 @@ export default function App() {
             ? 'admin_form'
             : uData.role === 'admin'
             ? 'admin'
-            : (typeof uData.role === 'string' && uData.role.toLowerCase().includes('admin')
-                ? 'admin'
-                : (uname.includes('zeynep') || uname.includes('admin') ? 'admin_afis' : 'user'));
+            : (typeof uData.role === 'string' && uData.role.toLowerCase().includes('admin') ? 'admin' : 'user');
 
-        const userObj: AppUser = {
+        authenticatedUser = {
           uid: cred.user.uid,
           name: uData.name || uname,
           username: uData.username || uname,
           role: roleVal,
           createdAt: uData.createdAt
         };
-        setCurrentUser(userObj);
-        const isUserAdmin = roleVal !== 'user';
-        setActiveTab(isUserAdmin ? 'all' : 'requests');
-        showToast(`Hoş geldiniz, ${userObj.name}! 👋`, 'success');
-        setLoginLoading(false);
-        return;
       } catch (authErr: any) {
-        console.error("Firebase auth error:", authErr);
+        console.warn("Firebase Auth signIn attempt:", authErr?.code);
       }
 
-      setAuthError('Kullanıcı adı veya şifre hatalı. Lütfen yöneticiniz tarafından tanımlanan bilgileri girin.');
+      // 2. Eğer Firebase Auth'ta henüz senkronize değilse, veritabanındaki kullanıcı kaydını kontrol et
+      if (!authenticatedUser) {
+        try {
+          const usersSnap = await rtdbGet(rtdbRef(rtdb, 'users'));
+          if (usersSnap.exists()) {
+            const allUsers = usersSnap.val();
+            for (const uid of Object.keys(allUsers)) {
+              const u = allUsers[uid];
+              if (u.username?.toLowerCase() === uname || (u.email && u.email.toLowerCase() === uname)) {
+                if (u.password && u.password === pass) {
+                  const parsedRole: UserRole =
+                    u.role === 'admin' || u.role === 'admin_afis' || u.role === 'admin_form'
+                      ? u.role
+                      : (typeof u.role === 'string' && u.role.toLowerCase().includes('admin') ? 'admin' : 'user');
+
+                  authenticatedUser = {
+                    uid,
+                    name: u.name || uname,
+                    username: u.username || uname,
+                    role: parsedRole,
+                    createdAt: u.createdAt
+                  };
+
+                  // Gelecekteki girişler için Firebase Auth hesabını arka planda eşitle
+                  try {
+                    await createUserWithEmailAndPassword(secondaryAuth, email, pass);
+                    await secondarySignOut(secondaryAuth);
+                  } catch {}
+                  break;
+                }
+              }
+            }
+          }
+        } catch (dbErr) {
+          console.warn("RTDB search warning:", dbErr);
+        }
+      }
+
+      if (authenticatedUser) {
+        setCurrentUser(authenticatedUser);
+        const isMatchedAdmin = authenticatedUser.role !== 'user';
+        setActiveTab(isMatchedAdmin ? 'all' : 'requests');
+        showToast(`Hoş geldiniz, ${authenticatedUser.name}! 👋`, 'success');
+        return;
+      }
+
+      setAuthError('Kullanıcı adı veya şifre hatalı. Lütfen size iletilen bilgileri kontrol edin.');
     } catch (err: any) {
       console.error("Login exception:", err);
       setAuthError('Giriş yapılırken bir hata oluştu: ' + (err.message || ''));

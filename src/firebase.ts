@@ -82,7 +82,10 @@ try {
 export const secondaryAuth = getAuth(secondaryAppInstance);
 
 export const DOMAIN = "@afisportali.internal";
-export const toEmail = (username: string) => username.toLowerCase().trim() + DOMAIN;
+export const toEmail = (username: string) => {
+  const clean = username.toLowerCase().trim();
+  return clean.includes('@') ? clean : clean + DOMAIN;
+};
 
 /**
  * Timeout-wrapped getDoc to prevent infinite loading if Firestore is blocked or slow
