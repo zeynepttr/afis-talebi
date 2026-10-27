@@ -55,7 +55,11 @@ import {
   FileSpreadsheet,
   Layers,
   ListChecks,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Upload,
+  Download,
+  Image as ImageIcon,
+  Maximize2
 } from 'lucide-react';
 
 const INITIAL_DEFAULT_REQUESTS: PosterRequest[] = [
@@ -159,7 +163,21 @@ export default function App() {
   const [loginLoading, setLoginLoading] = useState(false);
 
   // ── Portal Navigation ──
-  const [activeTab, setActiveTab] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('afis_portal_session');
+      if (saved) {
+        const u = JSON.parse(saved);
+        const isAdm =
+          u.role === 'admin' ||
+          u.role === 'admin_afis' ||
+          u.role === 'admin_form' ||
+          (Boolean(u.role) && String(u.role).toLowerCase().includes('admin'));
+        return isAdm ? 'all' : 'requests';
+      }
+    } catch {}
+    return 'all';
+  });
   const [typeFilter, setTypeFilter] = useState<'all' | 'afis' | 'form' | 'hepsi'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'created' | 'event'>('created');
@@ -194,11 +212,15 @@ export default function App() {
     mekan: '',
     ozelNot: '',
     formAciklamasi: '',
-    userChangesNote: ''
+    userChangesNote: '',
+    hazirSablonVar: false,
+    sablonGorseli: '',
+    sablonGorseliAdi: ''
   });
   const [editFormQuestions, setEditFormQuestions] = useState<string[]>([]);
   const [editNewQuestionInput, setEditNewQuestionInput] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [isUploadingEditSablon, setIsUploadingEditSablon] = useState(false);
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
 
   // ── User Creation Form (Admin) ──
@@ -220,7 +242,10 @@ export default function App() {
     saat: '',
     mekan: '',
     ozelNot: '',
-    formAciklamasi: ''
+    formAciklamasi: '',
+    hazirSablonVar: false,
+    sablonGorseli: '',
+    sablonGorseliAdi: ''
   });
   const [formQuestions, setFormQuestions] = useState<string[]>([
     'İsim / Soyisim',
@@ -229,13 +254,30 @@ export default function App() {
     'Telefon Numarası'
   ]);
   const [newQuestionInput, setNewQuestionInput] = useState('');
+  const [isUploadingSablon, setIsUploadingSablon] = useState(false);
   const [submittingRequest, setSubmittingRequest] = useState(false);
   const [mobileFormTab, setMobileFormTab] = useState<'form' | 'preview'>('form');
 
+  // ── Final Published Afiş State & Upload ──
+  const [uploadingFinalAfis, setUploadingFinalAfis] = useState(false);
+
+  // ── Image Lightbox Modal ──
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
+
   // ── Role Helpers ──
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'admin_afis' || currentUser?.role === 'admin_form';
-  const isAfisManager = currentUser?.role === 'admin' || currentUser?.role === 'admin_afis';
-  const isFormManager = currentUser?.role === 'admin' || currentUser?.role === 'admin_form';
+  const isAdmin =
+    currentUser?.role === 'admin' ||
+    currentUser?.role === 'admin_afis' ||
+    currentUser?.role === 'admin_form' ||
+    (Boolean(currentUser?.role) && String(currentUser?.role).toLowerCase().includes('admin'));
+  const isAfisManager =
+    currentUser?.role === 'admin' ||
+    currentUser?.role === 'admin_afis' ||
+    (Boolean(currentUser?.role) && String(currentUser?.role).toLowerCase().includes('admin'));
+  const isFormManager =
+    currentUser?.role === 'admin' ||
+    currentUser?.role === 'admin_form' ||
+    (Boolean(currentUser?.role) && String(currentUser?.role).toLowerCase().includes('admin'));
 
 
   // ── Toast Notifications ──
@@ -311,15 +353,22 @@ export default function App() {
         const snap = await rtdbGet(rtdbChild(rtdbRef(rtdb), `users/${firebaseUser.uid}`));
         if (snap && snap.exists() && isMounted) {
           const uData = snap.val();
+          const roleVal: UserRole =
+            uData.role === 'admin' || uData.role === 'admin_afis' || uData.role === 'admin_form'
+              ? uData.role
+              : (typeof uData.role === 'string' && uData.role.toLowerCase().includes('admin')
+                  ? 'admin'
+                  : (uData.username && (uData.username.toLowerCase().includes('zeynep') || uData.username.toLowerCase().includes('admin')) ? 'admin_afis' : 'user'));
           const uObj: AppUser = {
             uid: firebaseUser.uid,
             name: uData.name || 'Kullanıcı',
             username: uData.username || 'kullanici',
-            role: uData.role === 'admin' ? 'admin' : 'user',
+            role: roleVal,
             createdAt: uData.createdAt
           };
           setCurrentUser(uObj);
-          setActiveTab(uObj.role === 'admin' ? 'all' : 'requests');
+          const isUserAdmin = roleVal !== 'user';
+          setActiveTab(isUserAdmin ? 'all' : 'requests');
         }
       } catch (e) {
         console.warn("RTDB user fetch error:", e);
@@ -341,6 +390,12 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
 
+    const isUserAdmin =
+      currentUser.role === 'admin' ||
+      currentUser.role === 'admin_afis' ||
+      currentUser.role === 'admin_form' ||
+      (Boolean(currentUser.role) && String(currentUser.role).toLowerCase().includes('admin'));
+
     setDataLoading(true);
     let unsubReqs: (() => void) | null = null;
     let unsubUsers: (() => void) | null = null;
@@ -357,8 +412,10 @@ export default function App() {
               ...data[key]
             }));
 
-            if (currentUser.role === 'user') {
-              list = list.filter(r => r.createdBy?.uid === currentUser.uid);
+            // TÜM ADMİNLER TÜM TALEPLERİ GÖREBİLİR;
+            // SADECE NORMAL KULLANICILAR KENDİ TALEPLERİNİ GÖRÜR:
+            if (!isUserAdmin) {
+              list = list.filter(r => r.createdBy?.uid === currentUser.uid || r.createdBy?.name === currentUser.name);
             }
 
             list.sort((a, b) => {
@@ -374,12 +431,15 @@ export default function App() {
           setDataLoading(false);
         },
         () => {
-          setRequests(INITIAL_DEFAULT_REQUESTS);
+          const fallback = !isUserAdmin
+            ? INITIAL_DEFAULT_REQUESTS.filter(r => r.createdBy?.uid === currentUser.uid || r.createdBy?.name === currentUser.name)
+            : INITIAL_DEFAULT_REQUESTS;
+          setRequests(fallback);
           setDataLoading(false);
         }
       );
 
-      if (currentUser.role === 'admin') {
+      if (isUserAdmin) {
         const usersRef = rtdbRef(rtdb, 'users');
         unsubUsers = rtdbOnValue(
           usersRef,
@@ -402,7 +462,10 @@ export default function App() {
       }
     } catch {
       setDataLoading(false);
-      setRequests(INITIAL_DEFAULT_REQUESTS);
+      const fallback = !isUserAdmin
+        ? INITIAL_DEFAULT_REQUESTS.filter(r => r.createdBy?.uid === currentUser.uid)
+        : INITIAL_DEFAULT_REQUESTS;
+      setRequests(fallback);
     }
 
     return () => {
@@ -464,13 +527,19 @@ export default function App() {
           const allUsers = usersSnap.val();
           for (const uid of Object.keys(allUsers)) {
             const u = allUsers[uid];
-            if (u.username?.toLowerCase() === uname) {
+            if (u.username?.toLowerCase() === uname || (u.email && u.email.toLowerCase() === uname)) {
               if (!u.password || u.password === pass) {
+                const parsedRole: UserRole =
+                  u.role === 'admin' || u.role === 'admin_afis' || u.role === 'admin_form'
+                    ? u.role
+                    : (typeof u.role === 'string' && u.role.toLowerCase().includes('admin')
+                        ? 'admin'
+                        : (u.username && (u.username.toLowerCase().includes('zeynep') || u.username.toLowerCase().includes('admin')) ? 'admin_afis' : 'user'));
                 matchedUser = {
                   uid,
                   name: u.name,
                   username: u.username,
-                  role: u.role === 'admin' ? 'admin' : 'user',
+                  role: parsedRole,
                   createdAt: u.createdAt
                 };
                 break;
@@ -484,7 +553,7 @@ export default function App() {
 
       // Built-in initial role fallback for instant access & testing
       if (!matchedUser) {
-        if (uname === 'zeynep' && (pass === '123456' || pass === 'zeynep123')) {
+        if ((uname === 'zeynep' || uname === 'zeyneptatar' || uname === 'zeyneptatar71' || uname.startsWith('zeyneptatar71@')) && (pass === '123456' || pass === 'zeynep123' || pass === 'admin123')) {
           matchedUser = {
             uid: 'admin-afis-zeynep',
             name: 'Zeynep Tatar (Afiş Yöneticisi)',
@@ -521,7 +590,8 @@ export default function App() {
 
       if (matchedUser) {
         setCurrentUser(matchedUser);
-        setActiveTab(matchedUser.role === 'user' ? 'requests' : 'all');
+        const isMatchedAdmin = matchedUser.role !== 'user';
+        setActiveTab(isMatchedAdmin ? 'all' : 'requests');
         showToast(`Hoş geldiniz, ${matchedUser.name}! 👋`, 'success');
         setLoginLoading(false);
         return;
@@ -533,21 +603,27 @@ export default function App() {
         const snap = await rtdbGet(rtdbChild(rtdbRef(rtdb), `users/${cred.user.uid}`));
         const uData = snap.exists() ? snap.val() : {};
 
-        const userObj: AppUser = {
-          uid: cred.user.uid,
-          name: uData.name || uname,
-          username: uData.username || uname,
-          role: uData.role === 'admin_afis'
+        const roleVal: UserRole =
+          uData.role === 'admin_afis'
             ? 'admin_afis'
             : uData.role === 'admin_form'
             ? 'admin_form'
             : uData.role === 'admin'
             ? 'admin'
-            : 'user',
+            : (typeof uData.role === 'string' && uData.role.toLowerCase().includes('admin')
+                ? 'admin'
+                : (uname.includes('zeynep') || uname.includes('admin') ? 'admin_afis' : 'user'));
+
+        const userObj: AppUser = {
+          uid: cred.user.uid,
+          name: uData.name || uname,
+          username: uData.username || uname,
+          role: roleVal,
           createdAt: uData.createdAt
         };
         setCurrentUser(userObj);
-        setActiveTab(userObj.role === 'user' ? 'requests' : 'all');
+        const isUserAdmin = roleVal !== 'user';
+        setActiveTab(isUserAdmin ? 'all' : 'requests');
         showToast(`Hoş geldiniz, ${userObj.name}! 👋`, 'success');
         setLoginLoading(false);
         return;
@@ -749,6 +825,128 @@ export default function App() {
   };
 
   // ─────────────────────────────────────────────────────────────
+  // 6d2. IMAGE HELPERS: BASE64 COMPRESSION & DOWNLOAD
+  // ─────────────────────────────────────────────────────────────
+  const compressImageToBase64 = (file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.78): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (file.type === 'image/svg+xml') {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let { width, height } = img;
+          if (width > maxWidth || height > maxHeight) {
+            if (width / height > maxWidth / maxHeight) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            } else {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(e.target?.result as string);
+            return;
+          }
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve(dataUrl);
+        };
+        img.onerror = () => reject(new Error('Görsel dosyası işlenemedi.'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleDownloadImage = (dataUrl: string, fileName: string) => {
+    if (!dataUrl) return;
+    try {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = fileName || 'afis-gorseli.jpg';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Görsel indiriliyor… 📥', 'success');
+    } catch {
+      window.open(dataUrl, '_blank');
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // 6d3. AFİŞ YÖNETİCİSİ ACTION: UPLOAD / PUBLISH FINAL POSTER IMAGE
+  // ─────────────────────────────────────────────────────────────
+  const handleUploadFinalAfis = async (requestId: string, file: File) => {
+    if (!requestId || !file) return;
+    setUploadingFinalAfis(true);
+
+    try {
+      showToast('Afiş görseli işleniyor… ⏳', 'info');
+      const base64 = await compressImageToBase64(file, 1400, 1400, 0.82);
+      const nowTimestamp = Date.now();
+      const updateData = {
+        finalAfisGorseli: base64,
+        finalAfisYukleyen: {
+          uid: currentUser?.uid || 'admin',
+          name: currentUser?.name || 'Afiş Yöneticisi'
+        },
+        finalAfisYuklemeTarihi: nowTimestamp,
+        status: 'yayinlandi' as RequestStatus,
+        updatedAt: nowTimestamp
+      };
+
+      await rtdbUpdate(rtdbRef(rtdb, `requests/${requestId}`), updateData);
+      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, ...updateData } : r));
+      if (selectedRequest?.id === requestId) {
+        setSelectedRequest(prev => prev ? { ...prev, ...updateData } : null);
+      }
+      showToast('🎉 Afiş görseli başarıyla yüklendi ve yayınlandı!', 'success');
+    } catch (err: any) {
+      console.error("Upload final poster error:", err);
+      showToast('Afiş yüklenemedi: ' + (err.message || 'Bilinmeyen hata'), 'error');
+    } finally {
+      setUploadingFinalAfis(false);
+    }
+  };
+
+  const handleRemoveFinalAfis = async (requestId: string) => {
+    if (!requestId) return;
+    setUploadingFinalAfis(true);
+    try {
+      const updateData = {
+        finalAfisGorseli: '',
+        finalAfisYuklemeTarihi: null,
+        updatedAt: Date.now()
+      };
+      await rtdbUpdate(rtdbRef(rtdb, `requests/${requestId}`), updateData);
+      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, finalAfisGorseli: undefined } : r));
+      if (selectedRequest?.id === requestId) {
+        setSelectedRequest(prev => prev ? { ...prev, finalAfisGorseli: undefined } : null);
+      }
+      showToast('Yayınlanan afiş görseli kaldırıldı.', 'info');
+    } catch (err: any) {
+      showToast('İşlem başarısız: ' + err.message, 'error');
+    } finally {
+      setUploadingFinalAfis(false);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
   // 6e. USER ACTION: START EDITING REQUEST (BEFORE 'yayinlandi')
   // ─────────────────────────────────────────────────────────────
   const handleStartEdit = (req: PosterRequest) => {
@@ -768,7 +966,10 @@ export default function App() {
       mekan: req.mekan || '',
       ozelNot: req.ozelNot || '',
       formAciklamasi: req.formAciklamasi || '',
-      userChangesNote: req.userChangesNote || ''
+      userChangesNote: req.userChangesNote || '',
+      hazirSablonVar: Boolean(req.hazirSablonVar),
+      sablonGorseli: req.sablonGorseli || '',
+      sablonGorseliAdi: req.sablonGorseliAdi || ''
     });
     setEditFormQuestions(
       req.formSorulari && req.formSorulari.length > 0
@@ -836,6 +1037,16 @@ export default function App() {
     if (isForm) {
       updatedFields.formAciklamasi = editFormData.formAciklamasi.trim();
       updatedFields.formSorulari = editFormQuestions;
+    }
+
+    if (editFormData.hazirSablonVar && editFormData.sablonGorseli) {
+      updatedFields.hazirSablonVar = true;
+      updatedFields.sablonGorseli = editFormData.sablonGorseli;
+      updatedFields.sablonGorseliAdi = editFormData.sablonGorseliAdi || 'hazir-sablon.jpg';
+    } else {
+      updatedFields.hazirSablonVar = false;
+      updatedFields.sablonGorseli = '';
+      updatedFields.sablonGorseliAdi = '';
     }
 
     try {
@@ -908,7 +1119,10 @@ export default function App() {
       saat: '06:30',
       mekan: 'Bolu / Yedigöller (Kalkış: Üniversite Metro İstasyonu)',
       ozelNot: '* Katılımcıların sabah saat 06:15\'te toplanma yerinde hazır bulunmaları rica olunur.',
-      formAciklamasi: 'Bolu ‘ da sonbaharın renklerini keşfedeceğimiz, huzur dolu tefekkür gezimize tüm hanım gönüllülerimiz davetlidir.🍁✨\n✔️ Gezi ücretimiz: 1000 TL’dir. (Geliri Filistin fonuna aktarılacaktır.)\n✔️ İkramımız: Sabah sandviç ve meyve suyu ikramımız olacaktır.\n📞 İletişim & Kayıt: 0533 560 74 89\n📅 Tarih: 31.10.2026 (Cumartesi)\n⏰ Kalkış: 06.30 — Üniversite Metro İstasyonu\n🚌 Gezimiz günübirliktir.\n📍 Güzergah: Bolu / Yedigöller'
+      formAciklamasi: 'Bolu ‘ da sonbaharın renklerini keşfedeceğimiz, huzur dolu tefekkür gezimize tüm hanım gönüllülerimiz davetlidir.🍁✨\n✔️ Gezi ücretimiz: 1000 TL’dir. (Geliri Filistin fonuna aktarılacaktır.)\n✔️ İkramımız: Sabah sandviç ve meyve suyu ikramımız olacaktır.\n📞 İletişim & Kayıt: 0533 560 74 89\n📅 Tarih: 31.10.2026 (Cumartesi)\n⏰ Kalkış: 06.30 — Üniversite Metro İstasyonu\n🚌 Gezimiz günübirliktir.\n📍 Güzergah: Bolu / Yedigöller',
+      hazirSablonVar: false,
+      sablonGorseli: '',
+      sablonGorseliAdi: ''
     });
     setFormQuestions([
       'İsim / Soyisim',
@@ -980,6 +1194,13 @@ export default function App() {
         reqData.formStatus = 'form-bekliyor';
       }
 
+      // Hazır Şablon (Optional Template)
+      if (formData.hazirSablonVar && formData.sablonGorseli) {
+        reqData.hazirSablonVar = true;
+        reqData.sablonGorseli = formData.sablonGorseli;
+        reqData.sablonGorseliAdi = formData.sablonGorseliAdi || 'hazir-sablon.jpg';
+      }
+
       // 1. Immediately inject into local state so user gets 0 latency on mobile/desktop
       setRequests(prev => [reqData, ...prev]);
 
@@ -1009,7 +1230,10 @@ export default function App() {
         saat: '',
         mekan: '',
         ozelNot: '',
-        formAciklamasi: ''
+        formAciklamasi: '',
+        hazirSablonVar: false,
+        sablonGorseli: '',
+        sablonGorseliAdi: ''
       });
       setFormQuestions(['İsim / Soyisim', 'Bölüm', 'Sınıf', 'Telefon Numarası']);
 
@@ -1031,6 +1255,12 @@ export default function App() {
   const filteredRequests = useMemo(() => {
     let list = [...requests];
 
+    // TÜM ADMİNLER TÜM TALEPLERİ GÖREBİLİR;
+    // SADECE NORMAL KULLANICILAR KENDİ TALEPLERİNİ GÖRÜR:
+    if (!isAdmin && currentUser) {
+      list = list.filter(r => r.createdBy?.uid === currentUser.uid || r.createdBy?.name === currentUser.name);
+    }
+
     // Request Type filter: 'all' | 'afis' | 'form' | 'hepsi'
     if (typeFilter !== 'all') {
       if (typeFilter === 'afis') {
@@ -1046,7 +1276,7 @@ export default function App() {
 
     if (activeTab === 'changed') {
       list = list.filter(r => r.hasUserChanges && !r.adminAcknowledgedChange);
-    } else if (isAdmin && activeTab !== 'all' && activeTab !== 'users' && activeTab !== 'forms') {
+    } else if (isAdmin && activeTab !== 'all' && activeTab !== 'requests' && activeTab !== 'users' && activeTab !== 'forms') {
       list = list.filter(r => r.status === activeTab);
     }
 
@@ -1293,62 +1523,6 @@ export default function App() {
           <h2 className="text-xl sm:text-2xl font-black text-slate-800 mb-1">Giriş Yapın</h2>
           <p className="text-xs sm:text-sm text-slate-500 mb-5">Kullanıcı adı ve şifrenizle devam edin.</p>
 
-          {/* Quick Demo Switcher Buttons */}
-          <div className="mb-5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
-            <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-              ⚡ Hızlı Rol Girişi (1 Tıkla Dene):
-            </span>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('zeynep', '123456')}
-                className="p-2 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-xl font-bold flex items-center gap-1.5 transition-all text-left shadow-xs active:scale-95"
-              >
-                <span className="text-base">🎨</span>
-                <div className="min-w-0">
-                  <div className="truncate font-black text-[11px]">Afiş Yöneticisi</div>
-                  <div className="text-[10px] text-indigo-500 truncate">@zeynep</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('adminokur', '123456')}
-                className="p-2 bg-white hover:bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl font-bold flex items-center gap-1.5 transition-all text-left shadow-xs active:scale-95"
-              >
-                <span className="text-base">📝</span>
-                <div className="min-w-0">
-                  <div className="truncate font-black text-[11px]">Adminokur</div>
-                  <div className="text-[10px] text-emerald-600 truncate">Form Yöneticisi</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('admin', '123456')}
-                className="p-2 bg-white hover:bg-violet-50 border border-violet-200 text-violet-900 rounded-xl font-bold flex items-center gap-1.5 transition-all text-left shadow-xs active:scale-95"
-              >
-                <span className="text-base">👑</span>
-                <div className="min-w-0">
-                  <div className="truncate font-black text-[11px]">Genel Yönetici</div>
-                  <div className="text-[10px] text-violet-500 truncate">@admin</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('ahmet', '123456')}
-                className="p-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 rounded-xl font-bold flex items-center gap-1.5 transition-all text-left shadow-xs active:scale-95"
-              >
-                <span className="text-base">👤</span>
-                <div className="min-w-0">
-                  <div className="truncate font-black text-[11px]">Talep Sahibi</div>
-                  <div className="text-[10px] text-slate-500 truncate">@ahmet (Gönüllü)</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
           {authError && (
             <div className="mb-5 p-3.5 bg-red-50 border border-red-200/80 rounded-2xl flex items-start gap-2.5 text-red-700 text-xs font-medium">
               <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-600" />
@@ -1416,18 +1590,6 @@ export default function App() {
               )}
             </button>
           </form>
-
-          {/* Security & Access Notice */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-center">
-              <p className="text-xs text-slate-700 font-semibold flex items-center justify-center gap-1.5">
-                <span>🔒</span> Yetkili Giriş Portalı
-              </p>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Afiş Yöneticisi, Form Yöneticisi (Adminokur) veya Talep Sahibi hesaplarıyla giriş yapabilirsiniz.
-              </p>
-            </div>
-          </div>
 
           <div className="mt-4 text-center">
             <button
@@ -2236,6 +2398,133 @@ export default function App() {
                           </div>
                         </div>
 
+                        {/* HAZIR AFİŞ ŞABLONU BÖLÜMÜ (AFİŞ VEYA HEPSİ İÇİN) */}
+                        {(formData.talepTuru === 'afis' || formData.talepTuru === 'hepsi') && (
+                          <div className="bg-indigo-50/70 border border-indigo-200/90 rounded-2xl p-4 sm:p-5 space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-2.5">
+                                <span className="text-xl shrink-0 mt-0.5">🖼️</span>
+                                <div>
+                                  <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wider">
+                                    Hazır Afiş Şablonu Kullanılacak mı?
+                                  </h4>
+                                  <p className="text-[11px] text-indigo-700 mt-0.5 leading-relaxed">
+                                    Eğer önceden hazırlanmış bir afiş şablonunuz, kurumsal taslağınız veya görsel örneğiniz varsa işaretleyip görsel yükleyebilirsiniz.
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Toggle Checkbox */}
+                              <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                                <input
+                                  type="checkbox"
+                                  checked={formData.hazirSablonVar}
+                                  onChange={e => {
+                                    const checked = e.target.checked;
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      hazirSablonVar: checked,
+                                      sablonGorseli: checked ? prev.sablonGorseli : '',
+                                      sablonGorseliAdi: checked ? prev.sablonGorseliAdi : ''
+                                    }));
+                                  }}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                              </label>
+                            </div>
+
+                            {/* File Upload Box When Checked */}
+                            {formData.hazirSablonVar && (
+                              <div className="pt-2 border-t border-indigo-100/90 space-y-2.5">
+                                {!formData.sablonGorseli ? (
+                                  <label className="border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-white rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors text-center group">
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      disabled={isUploadingSablon}
+                                      onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+                                        setIsUploadingSablon(true);
+                                        try {
+                                          const b64 = await compressImageToBase64(file);
+                                          setFormData(prev => ({
+                                            ...prev,
+                                            hazirSablonVar: true,
+                                            sablonGorseli: b64,
+                                            sablonGorseliAdi: file.name
+                                          }));
+                                          showToast('Şablon görseli hazırlandı! 🖼️', 'success');
+                                        } catch (err: any) {
+                                          showToast('Görsel işlenemedi: ' + err.message, 'error');
+                                        } finally {
+                                          setIsUploadingSablon(false);
+                                        }
+                                      }}
+                                    />
+                                    {isUploadingSablon ? (
+                                      <div className="py-2 flex items-center gap-2 text-indigo-600 font-bold text-xs">
+                                        <RefreshCw size={16} className="animate-spin" />
+                                        <span>Görsel dönüştürülüyor…</span>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+                                          <Upload size={18} />
+                                        </div>
+                                        <span className="text-xs font-bold text-indigo-950">
+                                          Şablon Görseli Seçin veya Yükleyin
+                                        </span>
+                                        <span className="text-[10px] text-indigo-600 mt-0.5">
+                                          PNG, JPG, WEBP (Otomatik Base64 optimize edilir)
+                                        </span>
+                                      </>
+                                    )}
+                                  </label>
+                                ) : (
+                                  <div className="bg-white rounded-xl p-3 border border-indigo-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto">
+                                      <img
+                                        src={formData.sablonGorseli}
+                                        alt="Şablon Ön İzleme"
+                                        onClick={() => setLightboxImage({ url: formData.sablonGorseli, title: 'Hazır Afiş Şablonu', subtitle: formData.sablonGorseliAdi })}
+                                        className="w-14 h-14 object-cover rounded-lg border border-slate-200 shrink-0 cursor-pointer hover:opacity-90"
+                                      />
+                                      <div className="min-w-0 flex-1">
+                                        <span className="text-xs font-bold text-indigo-950 block truncate">
+                                          {formData.sablonGorseliAdi || 'hazir-sablon.jpg'}
+                                        </span>
+                                        <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
+                                          <Check size={11} /> Şablon başarıyla yüklendi
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => setLightboxImage({ url: formData.sablonGorseli, title: 'Hazır Afiş Şablonu', subtitle: formData.sablonGorseliAdi })}
+                                        className="min-h-[32px] px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
+                                      >
+                                        <Maximize2 size={12} /> Gör
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, sablonGorseli: '', sablonGorseliAdi: '' }))}
+                                        className="min-h-[32px] px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
+                                      >
+                                        <Trash2 size={12} /> Kaldır
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Date, Time & Logistics */}
                         <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 sm:p-5">
                           <div className="flex items-center gap-2 mb-3.5 pb-2.5 border-b border-slate-200/60">
@@ -2521,6 +2810,21 @@ export default function App() {
                                 {formData.ozelNot && (
                                   <div className="mt-2 pt-1.5 text-[11px] text-slate-500 italic border-t border-dashed border-slate-200">
                                     {formData.ozelNot}
+                                  </div>
+                                )}
+
+                                {formData.sablonGorseli && (
+                                  <div className="mt-2.5 pt-2 border-t border-indigo-100 flex items-center gap-2.5 bg-indigo-50/70 p-2 rounded-xl">
+                                    <img
+                                      src={formData.sablonGorseli}
+                                      alt="Şablon"
+                                      className="w-10 h-10 object-cover rounded-lg border border-indigo-200 shrink-0 cursor-pointer"
+                                      onClick={() => setLightboxImage({ url: formData.sablonGorseli, title: 'Hazır Afiş Şablonu', subtitle: formData.sablonGorseliAdi })}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <span className="text-[11px] font-bold text-indigo-950 block">🖼️ Hazır Şablon Eklendi</span>
+                                      <span className="text-[10px] text-indigo-700 block truncate">{formData.sablonGorseliAdi || 'Görsel yüklendi'}</span>
+                                    </div>
                                   </div>
                                 )}
                               </div>
@@ -2849,317 +3153,282 @@ export default function App() {
                       <div
                         key={req.id || index}
                         onClick={() => setSelectedRequest(req)}
-                        className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4 ${
+                        className={`bg-white border rounded-2xl p-3.5 sm:p-4.5 transition-all cursor-pointer shadow-xs hover:shadow-md hover:border-slate-300 relative group ${
                           isAdmin && hasUnseenChanges
-                            ? 'border-amber-300 border-l-4 border-l-amber-500 bg-amber-50/20 shadow-xs'
-                            : `border-slate-200/80 border-l-4 ${cfg.borderColor}`
+                            ? 'border-amber-300 bg-amber-50/20'
+                            : 'border-slate-200/90'
                         }`}
                       >
-                        <div className="flex-1 min-w-0 w-full">
-                          {/* UNSEEN USER CHANGES ALERT STRIP (ONLY FOR ADMIN) */}
-                          {isAdmin && hasUnseenChanges && (
-                            <div className="mb-2.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="text-sm shrink-0">✏️</span>
-                                <div className="text-xs">
-                                  <strong className="font-bold">Kullanıcı Güncelleme Yaptı:</strong>{' '}
-                                  <span className="text-amber-800 text-[11px]">
-                                    {req.userChangesNote ? `"${req.userChangesNote}"` : 'Talebin detayları güncellendi.'}
-                                  </span>
-                                </div>
+                        {/* UNSEEN USER CHANGES ALERT STRIP (ONLY FOR ADMIN) */}
+                        {isAdmin && hasUnseenChanges && (
+                          <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-sm shrink-0">✏️</span>
+                              <div className="min-w-0">
+                                <span className="font-bold">Kullanıcı Güncelleme Yaptı:</span>{' '}
+                                <span className="text-amber-800 text-[11px] truncate">
+                                  {req.userChangesNote || 'Detaylar güncellendi.'}
+                                </span>
                               </div>
-                              <button
-                                type="button"
-                                disabled={acknowledgingId === req.id}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAcknowledgeChange(req.id);
-                                }}
-                                className="min-h-[30px] px-3 py-1 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white text-xs font-bold rounded-lg transition-transform flex items-center gap-1 self-start sm:self-auto shrink-0 shadow-xs"
-                                title="Değişikliği onayla ve uyarıyı kaldır"
-                              >
-                                <Check size={13} />
-                                <span>{acknowledgingId === req.id ? '…' : 'Onayla'}</span>
-                              </button>
                             </div>
-                          )}
+                            <button
+                              type="button"
+                              disabled={acknowledgingId === req.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAcknowledgeChange(req.id);
+                              }}
+                              className="min-h-[28px] px-2.5 py-0.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white text-[11px] font-bold rounded-lg transition-transform flex items-center justify-center gap-1 self-start sm:self-auto shrink-0 shadow-xs"
+                            >
+                              <Check size={12} />
+                              <span>{acknowledgingId === req.id ? '…' : 'Onayla'}</span>
+                            </button>
+                          </div>
+                        )}
 
-                          {/* USER NOTIFICATION PILL (ONLY FOR REGULAR USER WHILE PENDING) */}
-                          {!isAdmin && req.hasUserChanges && !req.adminAcknowledgedChange && (
-                            <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 flex items-center gap-2 text-xs font-medium">
-                              <span className="text-sm shrink-0">⏳</span>
-                              <span>Düzenlemeniz kaydedildi ve yönetici incelemesine iletildi.</span>
-                            </div>
-                          )}
+                        {/* USER NOTIFICATION PILL (ONLY FOR REGULAR USER WHILE PENDING) */}
+                        {!isAdmin && req.hasUserChanges && !req.adminAcknowledgedChange && (
+                          <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 flex items-center gap-2 text-xs font-medium">
+                            <span className="text-sm shrink-0">⏳</span>
+                            <span>Düzenlemeniz kaydedildi ve yönetici incelemesine iletildi.</span>
+                          </div>
+                        )}
 
-                          {/* Header row with badges & dates */}
-                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
-                            <span className="text-xs font-mono font-bold text-slate-400">#{index + 1}</span>
+                        {/* Top Meta Line: Type Pill + Team + Status Badge */}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                            <span className="text-[11px] font-mono font-bold text-slate-400 shrink-0">#{index + 1}</span>
 
                             {/* Request Type Badge */}
                             {req.talepTuru === 'hepsi' ? (
-                              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 border border-purple-200 flex items-center gap-1">
-                                <span>✨</span> Afiş + Form
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200/80 shrink-0">
+                                ✨ Afiş+Form
                               </span>
                             ) : req.talepTuru === 'form' ? (
-                              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                                <span>📝</span> Sadece Form
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/80 shrink-0">
+                                📝 Form
                               </span>
                             ) : (
-                              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 border border-indigo-200 flex items-center gap-1">
-                                <span>🎨</span> Sadece Afiş
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/80 shrink-0">
+                                🎨 Afiş
                               </span>
                             )}
 
-                            <span className="text-xs font-extrabold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md">
+                            <span className="text-[11px] font-semibold text-slate-600 truncate max-w-[140px] sm:max-w-xs">
                               {req.ekip}
                             </span>
 
-                            {/* TALEP TARİHİ CLEARLY HIGHLIGHTED */}
-                            <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
-                              <Clock3 size={11} className="text-slate-400 shrink-0" />
-                              <span className="truncate">Talep: {formatDateTime(req.createdAt)}</span>
-                              <span className="text-slate-400 font-normal">({formatRelative(req.createdAt)})</span>
-                            </span>
+                            {/* Template badge if attached */}
+                            {req.hazirSablonVar && req.sablonGorseli && (
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLightboxImage({ url: req.sablonGorseli!, title: 'Hazır Afiş Şablonu', subtitle: req.etkinlikAdi });
+                                }}
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 shrink-0 flex items-center gap-1 transition-colors cursor-pointer"
+                                title="Talep sahibinin hazır şablonunu gör"
+                              >
+                                🖼️ Şablon
+                              </span>
+                            )}
 
-                            {/* Status badge for change */}
-                            {isAdmin ? (
-                              hasUnseenChanges && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 bg-amber-100 text-amber-800 border border-amber-200">
-                                  <span>✏️</span>
-                                  <span>Düzenlendi</span>
-                                </span>
-                              )
-                            ) : (
-                              req.hasUserChanges && !req.adminAcknowledgedChange && (
-                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-md flex items-center gap-1 bg-sky-100 text-sky-800 border border-sky-200">
-                                  <span>⏳</span>
-                                  <span>İncelemede</span>
-                                </span>
-                              )
+                            {/* Published Poster badge */}
+                            {req.finalAfisGorseli && (
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLightboxImage({ url: req.finalAfisGorseli!, title: req.etkinlikAdi, subtitle: 'Yayınlanan Resmi Afiş' });
+                                }}
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 shrink-0 flex items-center gap-1 transition-colors cursor-pointer"
+                                title="Yayınlanan afiş görselini incele"
+                              >
+                                🎉 Afiş Yayında
+                              </span>
                             )}
                           </div>
 
-                          <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate mb-2">
-                            {req.etkinlikAdi}
-                          </h3>
-
-                          {/* Event info */}
-                          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-slate-500 mb-2">
-                            <span className="flex items-center gap-1.5 font-semibold text-slate-700">
-                              <Calendar size={13} className="text-violet-600 shrink-0" />
-                              <span>Etkinlik: {formatDateOnly(req.tarih)} {req.saat ? `(${req.saat})` : ''}</span>
-                            </span>
-                            <span className="flex items-center gap-1 font-medium truncate max-w-[180px] sm:max-w-none">
-                              <MapPin size={13} className="text-slate-400 shrink-0" />
-                              <span className="truncate">{req.mekan}</span>
-                            </span>
-                            <span className="flex items-center gap-1 font-medium">
-                              <UserIcon size={13} className="text-slate-400 shrink-0" />
-                              <span>{req.createdBy?.name || 'Kullanıcı'}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] border flex items-center gap-1 ${cfg.badgeBg}`}
+                            >
+                              <span>{cfg.icon}</span>
+                              <span>{cfg.label}</span>
                             </span>
                           </div>
+                        </div>
 
-                          {/* CRITICAL: PROMINENT GOOGLE FORM LINK BOX (VISIBLE TO ALL ROLES) */}
-                          {hasForm && (
-                            <div className="mt-2.5 p-2.5 sm:p-3 rounded-xl border transition-all text-xs">
-                              {req.formLink ? (
-                                <div className="bg-emerald-50/90 border border-emerald-300 rounded-lg p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <div className="w-6 h-6 rounded-md bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                                      <LinkIcon size={13} />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <div className="flex items-center gap-1.5 flex-wrap">
-                                        <span className="font-extrabold text-emerald-900">
-                                          Google Form Linki Hazır:
-                                        </span>
-                                        {isAfisManager && (
-                                          <span className="text-[10px] font-bold bg-emerald-200/80 text-emerald-800 px-1.5 py-0.2 rounded">
-                                            💡 QR Kod için kullanabilirsiniz
-                                          </span>
-                                        )}
-                                      </div>
-                                      <p className="font-mono text-[11px] text-emerald-700 truncate max-w-sm sm:max-w-md">
-                                        {req.formLink}
-                                      </p>
-                                    </div>
-                                  </div>
+                        {/* Event Title */}
+                        <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug mb-1.5 group-hover:text-violet-700 transition-colors">
+                          {req.etkinlikAdi}
+                        </h3>
 
-                                  <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
-                                    <button
-                                      type="button"
-                                      onClick={() => window.open(req.formLink, '_blank')}
-                                      className="min-h-[32px] px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-xs transition-transform flex items-center gap-1"
-                                      title="Formu yeni sekmede aç"
-                                    >
-                                      <ExternalLink size={12} />
-                                      <span>Formu Aç</span>
-                                    </button>
+                        {/* Event Quick Details: Date & Place */}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mb-2.5">
+                          <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+                            <Calendar size={13} className="text-violet-600 shrink-0" />
+                            <span>{formatDateOnly(req.tarih)}{req.saat ? ` · ${req.saat}` : ''}</span>
+                          </span>
+                          <span className="inline-flex items-center gap-1 truncate max-w-[200px] sm:max-w-xs">
+                            <MapPin size={13} className="text-slate-400 shrink-0" />
+                            <span className="truncate">{req.mekan}</span>
+                          </span>
+                        </div>
 
-                                    <button
-                                      type="button"
-                                      onClick={() => handleCopyLink(req.formLink || '')}
-                                      className="min-h-[32px] px-2 py-1 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 active:scale-95 text-xs font-bold rounded-lg transition-transform flex items-center gap-1"
-                                      title="Linki Panoya Kopyala"
-                                    >
-                                      <Copy size={12} />
-                                      <span>Kopyala</span>
-                                    </button>
-
-                                    {isFormManager && (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setFormLinkModalReq(req);
-                                          setFormLinkInput(req.formLink || '');
-                                        }}
-                                        className="min-h-[32px] px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
-                                        title="Linki Güncelle"
-                                      >
-                                        ✏️
-                                      </button>
-                                    )}
+                        {/* Form Status Strip (Clean, 1-layer, zero-overflow) */}
+                        {hasForm && (
+                          <div className="mb-2.5">
+                            {req.formLink ? (
+                              <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl px-3 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-emerald-700 shrink-0">🔗</span>
+                                  <div className="min-w-0">
+                                    <span className="font-bold text-emerald-950 block text-xs">
+                                      Google Form Linki Hazır
+                                    </span>
+                                    <span className="text-[11px] font-mono text-emerald-700 truncate block">
+                                      {req.formLink}
+                                    </span>
                                   </div>
                                 </div>
-                              ) : (
-                                <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-base shrink-0">⏳</span>
-                                    <div className="text-xs">
-                                      <strong className="text-amber-950 font-bold block">
-                                        Google Form Linki Bekleniyor
-                                      </strong>
-                                      <span className="text-[11px] text-amber-800">
-                                        {isFormManager
-                                          ? 'Adminokur: Bu etkinlik için henüz form linki girilmedi.'
-                                          : 'Form Yöneticisi (Adminokur) bağlantıyı hazırlıyor…'}
-                                      </span>
-                                    </div>
-                                  </div>
-
+                                <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
+                                  <a
+                                    href={req.formLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="min-h-[30px] px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-bold rounded-lg transition-transform flex items-center gap-1 shadow-xs"
+                                  >
+                                    <ExternalLink size={11} />
+                                    <span>Aç</span>
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyLink(req.formLink || '')}
+                                    className="min-h-[30px] px-2 py-1 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 active:scale-95 text-[11px] font-bold rounded-lg transition-transform flex items-center gap-1"
+                                    title="Linki Kopyala"
+                                  >
+                                    <Copy size={11} />
+                                  </button>
                                   {isFormManager && (
                                     <button
                                       type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
+                                      onClick={() => {
                                         setFormLinkModalReq(req);
                                         setFormLinkInput(req.formLink || '');
                                       }}
-                                      className="min-h-[32px] px-3 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-xs transition-transform flex items-center gap-1 self-start sm:self-auto shrink-0"
+                                      className="min-h-[30px] px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold rounded-lg transition-colors"
+                                      title="Linki Düzenle"
                                     >
-                                      <Plus size={13} />
-                                      <span>Form Linki Ekle</span>
+                                      ✏️
                                     </button>
                                   )}
                                 </div>
-                              )}
-                            </div>
-                          )}
+                              </div>
+                            ) : (
+                              <div className="bg-amber-50/70 border border-amber-200/90 rounded-xl px-3 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-amber-600 text-sm shrink-0">⏳</span>
+                                  <span className="text-amber-900 text-xs font-medium">
+                                    {isFormManager
+                                      ? 'Google Form linki henüz eklenmedi'
+                                      : 'Form linki bekleniyor (Adminokur hazırlıyor…)'}
+                                  </span>
+                                </div>
+                                {isFormManager && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setFormLinkModalReq(req);
+                                      setFormLinkInput(req.formLink || '');
+                                    }}
+                                    className="w-full sm:w-auto min-h-[32px] px-3.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-xs transition-transform flex items-center justify-center gap-1 shrink-0"
+                                  >
+                                    <Plus size={13} />
+                                    <span>Form Linki Ekle</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
 
-                          {/* 4-Step Progress Stepper (Responsive) - If has Afiş */}
-                          {hasAfis && (
-                            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center gap-1.5 sm:gap-2 max-w-xl">
-                              <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0">
-                                <div
-                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                    cfg.step >= 1 ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-500'
-                                  }`}
-                                >
-                                  {cfg.step > 1 ? '✓' : '1'}
-                                </div>
-                                <span className="text-[10px] font-semibold text-slate-600 truncate">Alındı</span>
-                              </div>
-                              <div className={`h-0.5 flex-1 ${cfg.step >= 2 ? 'bg-amber-500' : 'bg-slate-200'}`} />
-                              <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0">
-                                <div
-                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                    cfg.step >= 2 ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-500'
-                                  }`}
-                                >
-                                  {cfg.step > 2 ? '✓' : '2'}
-                                </div>
-                                <span className="text-[10px] font-semibold text-slate-600 truncate">Tasarım</span>
-                              </div>
-                              <div className={`h-0.5 flex-1 ${cfg.step >= 3 ? 'bg-blue-600' : 'bg-slate-200'}`} />
-                              <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0">
-                                <div
-                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                    cfg.step >= 3 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'
-                                  }`}
-                                >
-                                  {cfg.step > 3 ? '✓' : '3'}
-                                </div>
-                                <span className="text-[10px] font-semibold text-slate-600 truncate">Onay</span>
-                              </div>
-                              <div className={`h-0.5 flex-1 ${cfg.step >= 4 ? 'bg-emerald-600' : 'bg-slate-200'}`} />
-                              <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0">
-                                <div
-                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                    cfg.step >= 4 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'
-                                  }`}
-                                >
-                                  {cfg.step >= 4 ? '✓' : '4'}
-                                </div>
-                                <span className="text-[10px] font-semibold text-slate-600 truncate">Yayın</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="shrink-0 flex items-center justify-between w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 gap-2">
-                          <span
-                            className={`px-3 py-1 rounded-full font-bold text-xs border flex items-center gap-1.5 ${cfg.badgeBg}`}
+                        {/* Final Published Poster Preview Strip */}
+                        {req.finalAfisGorseli && (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLightboxImage({ url: req.finalAfisGorseli!, title: req.etkinlikAdi, subtitle: 'Yayınlanan Resmi Afiş' });
+                            }}
+                            className="mb-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2 hover:bg-emerald-100/60 transition-colors"
                           >
-                            <span>{cfg.icon}</span>
-                            <span>{cfg.label}</span>
-                          </span>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img
+                                src={req.finalAfisGorseli}
+                                alt="Afiş"
+                                className="w-8 h-10 object-cover rounded-md border border-emerald-200 shrink-0 shadow-2xs"
+                              />
+                              <div className="min-w-0">
+                                <span className="text-xs font-bold text-emerald-950 block">Resmi Afiş Yayınlandı</span>
+                                <span className="text-[10px] text-emerald-700 block truncate">Görseli incelemek ve indirmek için tıklayın</span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadImage(req.finalAfisGorseli!, `${req.etkinlikAdi.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ_-]/g, '_')}_afis.jpg`);
+                              }}
+                              className="min-h-[28px] px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-bold rounded-lg transition-transform flex items-center gap-1 shrink-0 shadow-xs"
+                            >
+                              <Download size={11} />
+                              <span>İndir</span>
+                            </button>
+                          </div>
+                        )}
 
-                          {/* USER EDIT BUTTON: Available before 'yayinlandi' */}
-                          {currentUser.role === 'user' && (
-                            req.status !== 'yayinlandi' ? (
+                        {/* Card Bottom: User info, Edit button, Delete button & hint */}
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs text-slate-400">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Clock3 size={11} className="text-slate-400 shrink-0" />
+                            <span className="text-[11px] truncate">
+                              Talep: {formatDateOnly(req.createdAt)} · {req.createdBy?.name || 'Kullanıcı'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* USER EDIT BUTTON */}
+                            {currentUser.role === 'user' && req.status !== 'yayinlandi' && (
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleStartEdit(req);
                                 }}
-                                className="min-h-[36px] px-3 py-1 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1"
-                                title="Etkinlik yayınlanmadan önce düzenle"
+                                className="min-h-[30px] px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 active:scale-95 text-[11px] font-bold rounded-lg transition-transform flex items-center gap-1"
                               >
-                                <Edit3 size={13} />
+                                <Edit3 size={11} />
                                 <span>Düzenle</span>
                               </button>
-                            ) : (
-                              <span
-                                className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-400 text-[10px] font-bold border border-slate-200 flex items-center gap-1"
-                                title="Yayınlandı aşamasına geçen etkinlikler düzenlenemez"
+                            )}
+
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRequestToDelete(req);
+                                }}
+                                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
+                                title="Etkinliği Sil"
                               >
-                                <Lock size={11} />
-                                <span>Kilitli</span>
-                              </span>
-                            )
-                          )}
+                                <Trash2 size={13} />
+                              </button>
+                            )}
 
-
-                          {isAdmin && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setRequestToDelete(req);
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center"
-                              title="Etkinliği Sil"
-                              aria-label="Etkinliği Sil"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
-
-                          <span className="text-slate-400 hover:text-slate-600">
-                            <ChevronRight size={18} />
-                          </span>
+                            <span className="text-slate-400 group-hover:text-violet-600 group-hover:translate-x-0.5 transition-all text-xs font-semibold flex items-center">
+                              <ChevronRight size={16} />
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -3258,33 +3527,43 @@ export default function App() {
           </div>
         ) : (
           <div className="flex items-center justify-between w-full max-w-sm mx-auto px-4">
-            <button
-              onClick={() => handleSelectTab('requests')}
-              className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all active:scale-95 ${
-                activeTab === 'requests' ? 'text-violet-700 font-bold scale-105' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <span className="text-xl leading-none">📋</span>
-              <span className="text-[10px] mt-1 font-bold">Taleplerim ({requests.length})</span>
-            </button>
-
-            {/* Elevated Hero Center Floating Button for New Request */}
+            {/* 1. Sol: Yeni Talep (+) Butonu */}
             <button
               onClick={() => handleSelectTab('new')}
-              className={`-mt-6 w-14 h-14 rounded-full flex flex-col items-center justify-center shadow-lg shadow-violet-500/35 transition-all active:scale-90 border-2 border-white ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-2xl font-bold text-xs transition-all active:scale-95 shadow-sm min-h-[42px] ${
                 activeTab === 'new'
-                  ? 'bg-slate-900 text-white ring-4 ring-violet-200'
-                  : 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white'
+                  ? 'bg-slate-900 text-white ring-2 ring-violet-300 shadow-slate-300'
+                  : 'bg-violet-600 hover:bg-violet-700 text-white shadow-violet-200'
               }`}
-              title="Yeni Afiş Talebi Oluştur"
-              aria-label="Yeni Afiş Talebi"
+              title="Yeni Afiş & Form Talebi Oluştur"
+              aria-label="Yeni Afiş & Form Talebi Oluştur"
             >
-              <Plus size={26} />
+              <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+                <Plus size={16} strokeWidth={2.8} />
+              </div>
+              <span>Yeni Talep</span>
             </button>
 
+            {/* 2. Orta: Taleplerim */}
+            <button
+              onClick={() => handleSelectTab('requests')}
+              className={`flex flex-col items-center justify-center min-h-[44px] py-1 px-3 rounded-2xl transition-all active:scale-95 ${
+                activeTab === 'requests' ? 'text-violet-700 font-extrabold scale-105' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <div className="relative">
+                <span className="text-xl leading-none">📋</span>
+                <span className="absolute -top-1 -right-2.5 px-1.5 py-0.2 rounded-full bg-violet-600 text-white text-[9px] font-bold">
+                  {requests.length}
+                </span>
+              </div>
+              <span className="text-[10px] mt-1 font-bold">Taleplerim</span>
+            </button>
+
+            {/* 3. Sağ: Çıkış */}
             <button
               onClick={handleLogout}
-              className="flex flex-col items-center justify-center py-1 px-3 text-slate-500 hover:text-red-600 rounded-2xl transition-all active:scale-95"
+              className="flex flex-col items-center justify-center min-h-[44px] py-1 px-3 text-slate-500 hover:text-red-600 rounded-2xl transition-all active:scale-95"
             >
               <LogOut size={20} />
               <span className="text-[10px] mt-1 font-bold">Çıkış</span>
@@ -3455,14 +3734,15 @@ export default function App() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => window.open(selectedRequest.formLink, '_blank')}
+                          <a
+                            href={selectedRequest.formLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="min-h-[36px] px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-xs"
                           >
                             <ExternalLink size={13} />
                             <span>Formu Aç</span>
-                          </button>
+                          </a>
                           <button
                             type="button"
                             onClick={() => handleCopyLink(selectedRequest.formLink || '')}
@@ -3508,24 +3788,24 @@ export default function App() {
                       {/* INLINE LINK INPUT FOR ADMINOKUR / ADMIN */}
                       {isFormManager && (
                         <div className="pt-2 border-t border-amber-200/80 space-y-2">
-                          <label className="block text-[11px] font-black text-emerald-900 uppercase tracking-wider">
+                          <label className="block text-[11px] font-bold text-emerald-950 uppercase tracking-wider">
                             🔗 Google Form Linkini Şimdi Ekle:
                           </label>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full min-w-0">
                             <input
                               type="url"
                               value={formLinkInput}
                               onChange={e => setFormLinkInput(e.target.value)}
                               placeholder="https://forms.gle/…"
-                              className="flex-1 min-h-[40px] px-3 bg-white border border-emerald-300 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                              className="w-full min-w-0 flex-1 min-h-[42px] px-3.5 bg-white border border-emerald-300 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-slate-800"
                             />
                             <button
                               type="button"
                               disabled={savingFormLink || !formLinkInput.trim()}
                               onClick={() => handleSaveFormLink(selectedRequest.id, formLinkInput)}
-                              className="min-h-[40px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                              className="w-full sm:w-auto min-h-[42px] px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0 shadow-xs"
                             >
-                              {savingFormLink ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
+                              {savingFormLink ? <RefreshCw size={13} className="animate-spin" /> : <Check size={14} />}
                               <span>Kaydet &amp; Yayınla</span>
                             </button>
                           </div>
@@ -3601,6 +3881,233 @@ export default function App() {
                   </div>
                 </div>
               )}
+
+              {/* ════ HAZIR AFİŞ ŞABLONU (TALEP SAHİBİNİN YÜKLEDİĞİ) ════ */}
+              {selectedRequest.hazirSablonVar && selectedRequest.sablonGorseli && (
+                <div className="bg-gradient-to-br from-indigo-50/90 to-blue-50/70 border border-indigo-200 rounded-2xl p-4 sm:p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🖼️</span>
+                      <div>
+                        <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wider">
+                          Talep Sahibinin Hazır Şablonu
+                        </h4>
+                        <p className="text-[11px] text-indigo-700">
+                          Afiş tasarımcısı bu şablon veya görseli referans alacaktır.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold border border-indigo-200 shrink-0">
+                      Hazır Şablon
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-4 bg-white/90 p-3.5 rounded-xl border border-indigo-100">
+                    <div
+                      className="relative group cursor-pointer overflow-hidden rounded-xl border border-slate-200 shrink-0 shadow-xs"
+                      onClick={() => setLightboxImage({
+                        url: selectedRequest.sablonGorseli!,
+                        title: 'Hazır Afiş Şablonu',
+                        subtitle: selectedRequest.etkinlikAdi
+                      })}
+                    >
+                      <img
+                        src={selectedRequest.sablonGorseli}
+                        alt="Hazır Şablon"
+                        className="w-32 h-32 sm:w-28 sm:h-28 object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                        <Maximize2 size={20} />
+                      </div>
+                    </div>
+
+                    <div className="flex-1 min-w-0 text-center sm:text-left space-y-1">
+                      <span className="text-xs font-bold text-slate-800 block truncate">
+                        {selectedRequest.sablonGorseliAdi || 'hazir-sablon.jpg'}
+                      </span>
+                      <p className="text-[11px] text-slate-500">
+                        Talep sahibi tarafından iletilen görsel şablon. Tam boyutta inceleyebilir veya tasarım için indirebilirsiniz.
+                      </p>
+
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setLightboxImage({
+                            url: selectedRequest.sablonGorseli!,
+                            title: 'Hazır Afiş Şablonu',
+                            subtitle: selectedRequest.etkinlikAdi
+                          })}
+                          className="min-h-[34px] px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Maximize2 size={13} />
+                          <span>Büyük Boyut Gör</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadImage(
+                            selectedRequest.sablonGorseli!,
+                            selectedRequest.sablonGorseliAdi || 'hazir-sablon.jpg'
+                          )}
+                          className="min-h-[34px] px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
+                        >
+                          <Download size={13} />
+                          <span>Şablonu İndir</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ════ YAYINLANAN RESMİ AFİŞ GÖRSELİ BÖLÜMÜ ════ */}
+              <div className="bg-gradient-to-br from-emerald-50/90 to-teal-50/70 border border-emerald-200 rounded-2xl p-4 sm:p-5 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🎨</span>
+                    <div>
+                      <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+                        Yayınlanan Resmi Afiş
+                      </h4>
+                      <p className="text-[11px] text-emerald-700">
+                        {selectedRequest.finalAfisGorseli
+                          ? 'Tasarımı tamamlanıp yayına alınan resmi afiş görseli.'
+                          : isAfisManager
+                          ? 'Afiş tamamlandığında bitmiş görseli buradan yükleyip herkesle paylaşabilirsiniz.'
+                          : 'Afiş tasarımı henüz tamamlanmadı (Tasarımcı hazırlıyor…)'}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedRequest.finalAfisGorseli && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold shadow-xs shrink-0 flex items-center gap-1">
+                      <Check size={11} /> Yayında
+                    </span>
+                  )}
+                </div>
+
+                {selectedRequest.finalAfisGorseli ? (
+                  <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-3.5 rounded-xl border border-emerald-100">
+                    <div
+                      className="relative group cursor-pointer overflow-hidden rounded-xl border border-slate-200 shrink-0 shadow-md"
+                      onClick={() => setLightboxImage({
+                        url: selectedRequest.finalAfisGorseli!,
+                        title: selectedRequest.etkinlikAdi,
+                        subtitle: 'Yayınlanan Resmi Afiş'
+                      })}
+                    >
+                      <img
+                        src={selectedRequest.finalAfisGorseli}
+                        alt="Yayınlanan Afiş"
+                        className="w-36 h-48 sm:w-32 sm:h-44 object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                        <Maximize2 size={24} />
+                      </div>
+                    </div>
+
+                    <div className="flex-1 min-w-0 text-center sm:text-left space-y-1.5">
+                      <span className="text-xs font-bold text-slate-800 block truncate">
+                        {selectedRequest.etkinlikAdi} (Resmi Afiş)
+                      </span>
+                      <div className="text-[11px] text-slate-500 space-y-0.5">
+                        <p>Ekleyen: <strong>{selectedRequest.finalAfisYukleyen?.name || 'Afiş Yöneticisi'}</strong></p>
+                        {selectedRequest.finalAfisYuklemeTarihi && (
+                          <p>Yayınlanma: {formatDateTime(selectedRequest.finalAfisYuklemeTarihi)}</p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setLightboxImage({
+                            url: selectedRequest.finalAfisGorseli!,
+                            title: selectedRequest.etkinlikAdi,
+                            subtitle: 'Yayınlanan Resmi Afiş'
+                          })}
+                          className="min-h-[36px] px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Maximize2 size={13} />
+                          <span>Tam Boyutta Gör</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadImage(
+                            selectedRequest.finalAfisGorseli!,
+                            `${selectedRequest.etkinlikAdi.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ_-]/g, '_')}_afis.jpg`
+                          )}
+                          className="min-h-[36px] px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
+                        >
+                          <Download size={13} />
+                          <span>Afişi İndir</span>
+                        </button>
+
+                        {isAfisManager && (
+                          <>
+                            <label className="min-h-[36px] px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 active:scale-95 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={uploadingFinalAfis}
+                                onChange={e => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleUploadFinalAfis(selectedRequest.id, file);
+                                }}
+                              />
+                              <Upload size={13} />
+                              <span>Değiştir</span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFinalAfis(selectedRequest.id)}
+                              className="min-h-[36px] px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 active:scale-95 text-xs font-bold rounded-xl transition-colors"
+                              title="Görseli Kaldır"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : isAfisManager ? (
+                  <div className="bg-white rounded-xl p-4 border-2 border-dashed border-emerald-300">
+                    <label className="flex flex-col items-center justify-center cursor-pointer py-3 group">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={uploadingFinalAfis}
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) handleUploadFinalAfis(selectedRequest.id, file);
+                        }}
+                      />
+                      {uploadingFinalAfis ? (
+                        <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs py-2">
+                          <RefreshCw size={18} className="animate-spin" />
+                          <span>Afiş görseli işleniyor ve yayınlanıyor…</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
+                            <Upload size={20} />
+                          </div>
+                          <span className="text-xs font-black text-emerald-950">
+                            Bitmiş Afiş Görselini Yükle &amp; Yayınla
+                          </span>
+                          <span className="text-[11px] text-emerald-700 mt-0.5 text-center">
+                            PNG, JPG (Yüklendiğinde durum otomatik "Yayınlandı" olur ve herkes indirebilir)
+                          </span>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                ) : (
+                  <div className="bg-white/80 rounded-xl p-3 border border-slate-200 text-center text-xs text-slate-500">
+                    Afiş tasarımı süreci devam ediyor. Tasarımcı onayladığında final görseli buradan indirebileceksiniz.
+                  </div>
+                )}
+              </div>
 
               {/* Metadata Grid (Prominent Request Date) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-xs bg-slate-50 p-3.5 sm:p-4 rounded-xl border border-slate-200/60">
@@ -4135,6 +4642,122 @@ export default function App() {
                 </div>
               )}
 
+              {/* HAZIR AFİŞ ŞABLONU BÖLÜMÜ (EDIT MODAL) */}
+              {(editFormData.talepTuru === 'afis' || editFormData.talepTuru === 'hepsi') && (
+                <div className="bg-indigo-50/70 border border-indigo-200/90 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2">
+                      <span className="text-lg shrink-0 mt-0.5">🖼️</span>
+                      <div>
+                        <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wider">
+                          Hazır Afiş Şablonu
+                        </h4>
+                        <p className="text-[11px] text-indigo-700 leading-relaxed">
+                          Tasarımcının kullanacağı hazır şablon görselini ekleyebilir veya güncelleyebilirsiniz.
+                        </p>
+                      </div>
+                    </div>
+
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                      <input
+                        type="checkbox"
+                        checked={editFormData.hazirSablonVar}
+                        onChange={e => {
+                          const checked = e.target.checked;
+                          setEditFormData(prev => ({
+                            ...prev,
+                            hazirSablonVar: checked,
+                            sablonGorseli: checked ? prev.sablonGorseli : '',
+                            sablonGorseliAdi: checked ? prev.sablonGorseliAdi : ''
+                          }));
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+
+                  {editFormData.hazirSablonVar && (
+                    <div className="pt-2 border-t border-indigo-100/90 space-y-2">
+                      {!editFormData.sablonGorseli ? (
+                        <label className="border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-white rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer transition-colors text-center group">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={isUploadingEditSablon}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              setIsUploadingEditSablon(true);
+                              try {
+                                const b64 = await compressImageToBase64(file);
+                                setEditFormData(prev => ({
+                                  ...prev,
+                                  hazirSablonVar: true,
+                                  sablonGorseli: b64,
+                                  sablonGorseliAdi: file.name
+                                }));
+                                showToast('Şablon görseli hazırlandı! 🖼️', 'success');
+                              } catch (err: any) {
+                                showToast('Görsel işlenemedi: ' + err.message, 'error');
+                              } finally {
+                                setIsUploadingEditSablon(false);
+                              }
+                            }}
+                          />
+                          {isUploadingEditSablon ? (
+                            <div className="py-1 flex items-center gap-2 text-indigo-600 font-bold text-xs">
+                              <RefreshCw size={15} className="animate-spin" />
+                              <span>Görsel dönüştürülüyor…</span>
+                            </div>
+                          ) : (
+                            <>
+                              <Upload size={16} className="text-indigo-600 mb-1" />
+                              <span className="text-xs font-bold text-indigo-950">Şablon Görseli Yükle</span>
+                              <span className="text-[10px] text-indigo-600">PNG, JPG (Base64)</span>
+                            </>
+                          )}
+                        </label>
+                      ) : (
+                        <div className="bg-white rounded-xl p-2.5 border border-indigo-200 flex items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <img
+                              src={editFormData.sablonGorseli}
+                              alt="Şablon"
+                              className="w-12 h-12 object-cover rounded-lg border border-slate-200 shrink-0 cursor-pointer"
+                              onClick={() => setLightboxImage({ url: editFormData.sablonGorseli, title: 'Hazır Afiş Şablonu', subtitle: editFormData.sablonGorseliAdi })}
+                            />
+                            <div className="min-w-0">
+                              <span className="text-xs font-bold text-indigo-950 block truncate">
+                                {editFormData.sablonGorseliAdi || 'hazir-sablon.jpg'}
+                              </span>
+                              <span className="text-[10px] text-emerald-600 font-medium">✓ Şablon hazır</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setLightboxImage({ url: editFormData.sablonGorseli, title: 'Hazır Afiş Şablonu', subtitle: editFormData.sablonGorseliAdi })}
+                              className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg"
+                            >
+                              Gör
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditFormData(prev => ({ ...prev, sablonGorseli: '', sablonGorseliAdi: '' }))}
+                              className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg"
+                            >
+                              Kaldır
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Özel Not / Dipnot
@@ -4189,6 +4812,64 @@ export default function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ════ IMAGE LIGHTBOX MODAL (FOR TEMPLATE & FINAL POSTER) ════ */}
+      {lightboxImage && (
+        <div
+          onClick={() => setLightboxImage(null)}
+          className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-between p-3 sm:p-6 animate-fade-in"
+        >
+          {/* Lightbox Top Header */}
+          <div
+            onClick={e => e.stopPropagation()}
+            className="w-full max-w-4xl flex items-center justify-between gap-3 text-white pb-3 shrink-0"
+          >
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold truncate">
+                {lightboxImage.title}
+              </h3>
+              {lightboxImage.subtitle && (
+                <p className="text-xs text-slate-400 truncate">{lightboxImage.subtitle}</p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleDownloadImage(lightboxImage.url, `${lightboxImage.title.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ_-]/g, '_')}.jpg`)}
+                className="min-h-[38px] px-3.5 py-1.5 bg-white/15 hover:bg-white/25 active:scale-95 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 backdrop-blur-xs border border-white/20"
+              >
+                <Download size={14} />
+                <span className="hidden sm:inline">İndir</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLightboxImage(null)}
+                className="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors border border-white/20"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Lightbox Image Stage */}
+          <div
+            onClick={e => e.stopPropagation()}
+            className="flex-1 w-full max-w-4xl flex items-center justify-center p-2 min-h-0 overflow-hidden"
+          >
+            <img
+              src={lightboxImage.url}
+              alt={lightboxImage.title}
+              className="max-w-full max-h-[82vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+            />
+          </div>
+
+          {/* Lightbox Mobile Close Prompt */}
+          <div className="py-2 text-[11px] text-slate-400 shrink-0 text-center">
+            Kapatmak için görselin dışına dokunabilirsiniz
           </div>
         </div>
       )}

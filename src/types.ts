@@ -38,6 +38,19 @@ export interface PosterRequest {
   };
   formAddedAt?: any;
 
+  // Hazır Şablon (Optional Template uploaded by requester)
+  hazirSablonVar?: boolean;
+  sablonGorseli?: string; // Base64 data URL
+  sablonGorseliAdi?: string;
+
+  // Yayınlanan Final Afiş Görseli (Uploaded when status is yayinlandi or in progress by designer/admin)
+  finalAfisGorseli?: string; // Base64 data URL
+  finalAfisYukleyen?: {
+    uid: string;
+    name: string;
+  };
+  finalAfisYuklemeTarihi?: any;
+
   createdBy: {
     uid: string;
     name: string;
