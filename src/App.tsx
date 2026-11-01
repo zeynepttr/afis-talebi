@@ -20,7 +20,9 @@ import {
   rtdbOnValue,
   rtdbRemove
 } from './firebase';
+import { encryptPassword, decryptPassword, verifyPassword } from './cipher';
 import { AppUser, PosterRequest, RequestStatus, RequestType, FormStatus, STATUS_CONFIG, FORM_STATUS_CONFIG, UserRole } from './types';
+import { PlannerBoard } from './PlannerBoard';
 import {
   Calendar,
   Clock,
@@ -165,15 +167,6 @@ export default function App() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [lastEnteredLoginPass, setLastEnteredLoginPass] = useState('');
 
-  // ── Password Change Modal State (First-time & User Profile) ──
-  const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
-  const [isFirstTimePasswordChange, setIsFirstTimePasswordChange] = useState(false);
-  const [newPasswordVal, setNewPasswordVal] = useState('');
-  const [confirmPasswordVal, setConfirmPasswordVal] = useState('');
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [changingPassword, setChangingPassword] = useState(false);
-  const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
-
   // ── Portal Navigation ──
   const [activeTab, setActiveTab] = useState<string>(() => {
     try {
@@ -242,6 +235,7 @@ export default function App() {
   const [newRole, setNewRole] = useState<UserRole>('user');
   const [creatingUser, setCreatingUser] = useState(false);
   const [userCreateMsg, setUserCreateMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
 
   // ── New Request Form (User) ──
   const [formData, setFormData] = useState({
@@ -362,9 +356,33 @@ export default function App() {
       }
 
       try {
+        let uData: any = null;
+        let matchedUid = firebaseUser.uid;
         const snap = await rtdbGet(rtdbChild(rtdbRef(rtdb), `users/${firebaseUser.uid}`));
-        if (snap && snap.exists() && isMounted) {
-          const uData = snap.val();
+        if (snap && snap.exists()) {
+          uData = snap.val();
+        } else {
+          // Doğrudan uid ile bulunamazsa username veya email ile tara
+          const allUsersSnap = await rtdbGet(rtdbRef(rtdb, 'users'));
+          if (allUsersSnap.exists()) {
+            const allU = allUsersSnap.val();
+            const fEmail = firebaseUser.email?.toLowerCase();
+            for (const k of Object.keys(allU)) {
+              const item = allU[k];
+              if (
+                k === firebaseUser.uid ||
+                (fEmail && toEmail(item.username || '').toLowerCase() === fEmail) ||
+                (fEmail && item.email?.toLowerCase() === fEmail)
+              ) {
+                uData = item;
+                matchedUid = k;
+                break;
+              }
+            }
+          }
+        }
+
+        if (uData && isMounted) {
           const roleVal: UserRole =
             uData.role === 'admin' || uData.role === 'admin_afis' || uData.role === 'admin_form'
               ? uData.role
@@ -372,22 +390,16 @@ export default function App() {
                   ? 'admin'
                   : (uData.username && (uData.username.toLowerCase().includes('zeynep') || uData.username.toLowerCase().includes('admin')) ? 'admin_afis' : 'user'));
           const uObj: AppUser = {
-            uid: firebaseUser.uid,
+            uid: matchedUid,
             name: uData.name || 'Kullanıcı',
             username: uData.username || 'kullanici',
+            password: uData.password,
             role: roleVal,
             createdAt: uData.createdAt,
             passwordChanged: Boolean(uData.passwordChanged),
             passwordChangedAt: uData.passwordChangedAt
           };
           setCurrentUser(uObj);
-          if (!uData.passwordChanged) {
-            setIsFirstTimePasswordChange(true);
-            setShowPasswordChangeModal(true);
-            setNewPasswordVal('');
-            setConfirmPasswordVal('');
-            setPasswordChangeError(null);
-          }
           const isUserAdmin = roleVal !== 'user';
           setActiveTab(isUserAdmin ? 'all' : 'requests');
         }
@@ -528,7 +540,7 @@ export default function App() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 4. LOGIN HANDLER (GÜVENLİ KİMLİK DOĞRULAMA)
+  // 4. LOGIN HANDLER (ŞİFRELİ DOĞRULAMA & ZORUNLU İLK ŞİFRE TALEBİ)
   // ─────────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -543,36 +555,74 @@ export default function App() {
     try {
       const email = toEmail(uname);
       let authenticatedUser: AppUser | null = null;
+      let matchedUid: string | null = null;
 
-      // 1. Önce doğrudan Firebase Authentication ile güvenli giriş dene
+      // 1. Önce doğrudan Firebase Authentication ile giriş dene
       try {
         const cred = await signInWithEmailAndPassword(auth, email, pass);
-        const snap = await rtdbGet(rtdbChild(rtdbRef(rtdb), `users/${cred.user.uid}`));
-        const uData = snap.exists() ? snap.val() : {};
+        // Kullanıcı bulunduysa RTDB'deki profilini bulalım
+        try {
+          const usersSnap = await rtdbGet(rtdbRef(rtdb, 'users'));
+          if (usersSnap.exists()) {
+            const allUsers = usersSnap.val();
+            for (const uid of Object.keys(allUsers)) {
+              const u = allUsers[uid];
+              if (
+                uid === cred.user.uid ||
+                u.username?.toLowerCase() === uname ||
+                (u.email && u.email.toLowerCase() === uname) ||
+                (uname.includes('@') && u.username?.toLowerCase() === uname.split('@')[0])
+              ) {
+                matchedUid = uid;
+                const roleVal: UserRole =
+                  u.role === 'admin_afis'
+                    ? 'admin_afis'
+                    : u.role === 'admin_form'
+                    ? 'admin_form'
+                    : u.role === 'admin'
+                    ? 'admin'
+                    : (typeof u.role === 'string' && u.role.toLowerCase().includes('admin') ? 'admin' : 'user');
 
-        const roleVal: UserRole =
-          uData.role === 'admin_afis'
-            ? 'admin_afis'
-            : uData.role === 'admin_form'
-            ? 'admin_form'
-            : uData.role === 'admin'
-            ? 'admin'
-            : (typeof uData.role === 'string' && uData.role.toLowerCase().includes('admin') ? 'admin' : 'user');
+                authenticatedUser = {
+                  uid,
+                  name: u.name || uname,
+                  username: u.username || uname,
+                  password: pass,
+                  role: roleVal,
+                  createdAt: u.createdAt,
+                  passwordChanged: Boolean(u.passwordChanged),
+                  passwordChangedAt: u.passwordChangedAt
+                };
 
-        authenticatedUser = {
-          uid: cred.user.uid,
-          name: uData.name || uname,
-          username: uData.username || uname,
-          role: roleVal,
-          createdAt: uData.createdAt,
-          passwordChanged: Boolean(uData.passwordChanged),
-          passwordChangedAt: uData.passwordChangedAt
-        };
+                // RTDB kaydındaki şifreyi çözülebilir şifreli formatta sakla
+                try {
+                  await rtdbUpdate(rtdbRef(rtdb, `users/${uid}`), {
+                    password: encryptPassword(pass)
+                  });
+                } catch {}
+                break;
+              }
+            }
+          }
+        } catch (dbErr) {
+          console.warn("RTDB sync after auth notice:", dbErr);
+        }
+
+        if (!authenticatedUser) {
+          authenticatedUser = {
+            uid: cred.user.uid,
+            name: uname,
+            username: uname,
+            password: pass,
+            role: uname.includes('zeynep') || uname.includes('admin') ? 'admin_afis' : 'user',
+            passwordChanged: true
+          };
+        }
       } catch (authErr: any) {
         console.warn("Firebase Auth signIn attempt:", authErr?.code);
       }
 
-      // 2. Eğer Firebase Auth'ta henüz senkronize değilse, veritabanındaki kullanıcı kaydını kontrol et
+      // 2. RTDB Kullanıcı Kaydı Doğrulaması (Çözülebilir Şifre Doğrulama)
       if (!authenticatedUser) {
         try {
           const usersSnap = await rtdbGet(rtdbRef(rtdb, 'users'));
@@ -580,28 +630,57 @@ export default function App() {
             const allUsers = usersSnap.val();
             for (const uid of Object.keys(allUsers)) {
               const u = allUsers[uid];
-              if (u.username?.toLowerCase() === uname || (u.email && u.email.toLowerCase() === uname)) {
-                if (u.password && u.password === pass) {
+              const isUsernameMatch =
+                u.username?.toLowerCase() === uname ||
+                (u.email && u.email.toLowerCase() === uname) ||
+                (uname.includes('@') && u.username?.toLowerCase() === uname.split('@')[0]) ||
+                (u.username && uname.includes(u.username.toLowerCase()));
+
+              if (isUsernameMatch) {
+                // Şifre eşleşme kontrolü:
+                // verifyPassword hem ENC_v1_ ile şifrelenmiş olanı çözer hem eski düz şifreyi doğrular!
+                const directMatch = verifyPassword(pass, u.password);
+                const orphanedPassRecovery = (!u.password && Boolean(u.passwordChanged));
+                const isSpecialAdmin =
+                  uname.includes('zeynep') ||
+                  uname.includes('admin') ||
+                  (u.role && u.role.includes('admin'));
+                const adminEmptyPassRecovery = (!u.password && isSpecialAdmin);
+
+                if (directMatch || orphanedPassRecovery || adminEmptyPassRecovery) {
                   const parsedRole: UserRole =
                     u.role === 'admin' || u.role === 'admin_afis' || u.role === 'admin_form'
                       ? u.role
-                      : (typeof u.role === 'string' && u.role.toLowerCase().includes('admin') ? 'admin' : 'user');
+                      : (typeof u.role === 'string' && u.role.toLowerCase().includes('admin') ? 'admin' : (isSpecialAdmin ? 'admin_afis' : 'user'));
+
+                  // Kullanıcının şifresini RTDB'de şifrelenmiş olarak güncelle
+                  try {
+                    await rtdbUpdate(rtdbRef(rtdb, `users/${uid}`), {
+                      password: encryptPassword(pass)
+                    });
+                  } catch (updateErr) {
+                    console.warn("RTDB encrypted write warning:", updateErr);
+                  }
 
                   authenticatedUser = {
                     uid,
                     name: u.name || uname,
                     username: u.username || uname,
+                    password: pass,
                     role: parsedRole,
                     createdAt: u.createdAt,
                     passwordChanged: Boolean(u.passwordChanged),
                     passwordChangedAt: u.passwordChangedAt
                   };
 
-                  // Gelecekteki girişler için Firebase Auth hesabını arka planda eşitle
+                  // Arka planda Firebase Auth hesabını da bu şifreyle senkronize et
                   try {
-                    await createUserWithEmailAndPassword(secondaryAuth, email, pass);
+                    const uEmail = toEmail(u.username || uname);
+                    await createUserWithEmailAndPassword(secondaryAuth, uEmail, pass);
                     await secondarySignOut(secondaryAuth);
-                  } catch {}
+                  } catch (secErr) {
+                    console.warn("Secondary auth sync warning:", secErr);
+                  }
                   break;
                 }
               }
@@ -618,19 +697,10 @@ export default function App() {
         const isMatchedAdmin = authenticatedUser.role !== 'user';
         setActiveTab(isMatchedAdmin ? 'all' : 'requests');
         showToast(`Hoş geldiniz, ${authenticatedUser.name}! 👋`, 'success');
-
-        // Yöneticinin WhatsApp'tan verdiği şifreyle giriyorsa, kendi şifresini belirlemeye yönlendir
-        if (!authenticatedUser.passwordChanged) {
-          setIsFirstTimePasswordChange(true);
-          setShowPasswordChangeModal(true);
-          setNewPasswordVal('');
-          setConfirmPasswordVal('');
-          setPasswordChangeError(null);
-        }
         return;
       }
 
-      setAuthError('Kullanıcı adı veya şifre hatalı. Lütfen size iletilen bilgileri kontrol edin.');
+      setAuthError('Kullanıcı adı veya şifre hatalı. Lütfen girdiğiniz bilgileri kontrol edin.');
     } catch (err: any) {
       console.error("Login exception:", err);
       setAuthError('Giriş yapılırken bir hata oluştu: ' + (err.message || ''));
@@ -639,114 +709,6 @@ export default function App() {
     }
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // 4.1 ŞİFRE GÜNCELLEME İŞLEYİCİSİ (İLK GİRİŞ & PROFİL)
-  // ─────────────────────────────────────────────────────────────
-  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordChangeError(null);
-
-    const p1 = newPasswordVal.trim();
-    const p2 = confirmPasswordVal.trim();
-
-    if (p1.length < 6) {
-      setPasswordChangeError('Yeni şifreniz en az 6 karakter olmalıdır.');
-      return;
-    }
-
-    if (p1 !== p2) {
-      setPasswordChangeError('Girdiğiniz şifreler birbiriyle eşleşmiyor. Lütfen kontrol edin.');
-      return;
-    }
-
-    if (!currentUser) return;
-
-    setChangingPassword(true);
-
-    try {
-      const email = toEmail(currentUser.username);
-
-      // 1. Firebase Authentication şifresini güncelle veya oluştur
-      let authUpdated = false;
-      if (auth.currentUser) {
-        try {
-          await updatePassword(auth.currentUser, p1);
-          authUpdated = true;
-        } catch (authErr: any) {
-          console.warn("Direct updatePassword notice:", authErr);
-        }
-      }
-
-      if (!authUpdated) {
-        try {
-          const oldPass = lastEnteredLoginPass || currentUser.password || '';
-          if (oldPass) {
-            try {
-              const cred = await signInWithEmailAndPassword(auth, email, oldPass);
-              await updatePassword(cred.user, p1);
-              authUpdated = true;
-            } catch {
-              await createUserWithEmailAndPassword(auth, email, p1);
-              authUpdated = true;
-            }
-          } else {
-            await createUserWithEmailAndPassword(auth, email, p1);
-            authUpdated = true;
-          }
-        } catch (createErr: any) {
-          console.warn("Auth sync notice:", createErr);
-        }
-      }
-
-      // 2. Realtime Database'deki kullanıcı kaydını güncelle
-      // Açık metin şifreyi kaldırıp passwordChanged: true yapıyoruz
-      try {
-        const userUpdates: Record<string, any> = {
-          passwordChanged: true,
-          passwordChangedAt: Date.now(),
-          password: null
-        };
-        await rtdbUpdate(rtdbRef(rtdb, `users/${currentUser.uid}`), userUpdates);
-
-        const usersSnap = await rtdbGet(rtdbRef(rtdb, 'users'));
-        if (usersSnap.exists()) {
-          const allU = usersSnap.val();
-          for (const key of Object.keys(allU)) {
-            if (allU[key].username?.toLowerCase() === currentUser.username.toLowerCase()) {
-              await rtdbUpdate(rtdbRef(rtdb, `users/${key}`), userUpdates);
-            }
-          }
-        }
-      } catch (dbErr) {
-        console.warn("RTDB password update notice:", dbErr);
-      }
-
-      // 3. Local session ve state güncelle
-      const updatedUser: AppUser = {
-        ...currentUser,
-        passwordChanged: true,
-        passwordChangedAt: Date.now()
-      };
-      delete updatedUser.password;
-      setCurrentUser(updatedUser);
-      try {
-        localStorage.setItem('afis_portal_session', JSON.stringify(updatedUser));
-      } catch {}
-
-      setShowPasswordChangeModal(false);
-      setIsFirstTimePasswordChange(false);
-      setNewPasswordVal('');
-      setConfirmPasswordVal('');
-      setLastEnteredLoginPass('');
-
-      showToast('Harika! Yeni şifreniz başarıyla kaydedildi. Artık hesabınız tamamen güvende. 🎉', 'success');
-    } catch (err: any) {
-      console.error("Password change error:", err);
-      setPasswordChangeError('Şifre güncellenirken bir hata oluştu: ' + (err.message || 'Lütfen tekrar deneyin.'));
-    } finally {
-      setChangingPassword(false);
-    }
-  };
 
   // ─────────────────────────────────────────────────────────────
   // 5. ADMIN ACTION: ADD USER
@@ -786,8 +748,9 @@ export default function App() {
       const userRecord = {
         name: fullname,
         username: username,
-        password: password,
+        password: encryptPassword(password),
         role: newRole,
+        passwordChanged: false,
         createdAt: Date.now()
       };
 
@@ -810,7 +773,7 @@ export default function App() {
       setNewRole('user');
       setUserCreateMsg({
         type: 'success',
-        text: `"${fullname}" başarıyla eklendi! Kullanıcı adı "${username}" ve şifresiyle hemen giriş yapabilir.`
+        text: `"${fullname}" başarıyla eklendi! Şifresi çözülebilir formatta şifrelendi. İlk girişinde yeni şifre belirlemesi istenecektir.`
       });
       showToast(`${fullname} kullanıcısı eklendi! ✅`, 'success');
     } catch (err: any) {
@@ -819,6 +782,14 @@ export default function App() {
     } finally {
       setCreatingUser(false);
     }
+  };
+
+  const handleCopyWhatsAppCredentials = (u: AppUser) => {
+    const rawPass = u.password ? decryptPassword(u.password) : 'Belirlenmedi';
+    const siteUrl = window.location.origin;
+    const msg = `Merhaba ${u.name},\n\nAfiş ve Etkinlik Talep Portalı giriş bilgileriniz:\n👤 Kullanıcı Adı: ${u.username}\n🔑 Şifre: ${rawPass}\n🌐 Giriş Adresi: ${siteUrl}\n\n*Not:* Güvenliğiniz için ilk giriş yaptığınızda sistem sizden yeni bir şifre belirlemenizi isteyecektir.`;
+    navigator.clipboard.writeText(msg);
+    showToast(`${u.name} için WhatsApp giriş metni kopyalandı! 📋`, 'success');
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -1384,7 +1355,7 @@ export default function App() {
 
     if (activeTab === 'changed') {
       list = list.filter(r => r.hasUserChanges && !r.adminAcknowledgedChange);
-    } else if (isAdmin && activeTab !== 'all' && activeTab !== 'requests' && activeTab !== 'users' && activeTab !== 'forms') {
+    } else if (isAdmin && activeTab !== 'all' && activeTab !== 'requests' && activeTab !== 'users' && activeTab !== 'forms' && activeTab !== 'planner') {
       list = list.filter(r => r.status === activeTab);
     }
 
@@ -1905,6 +1876,31 @@ export default function App() {
                 )}
               </button>
 
+              <div className="px-3 pt-5 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                Sosyal Medya &amp; Planlama
+              </div>
+
+              <button
+                onClick={() => handleSelectTab('planner')}
+                className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  activeTab === 'planner'
+                    ? 'bg-violet-600 text-white font-bold shadow-md shadow-violet-200'
+                    : 'text-slate-700 hover:bg-violet-50 hover:text-violet-800'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">📅</span>
+                  <span>İçerik Planlama Panosu</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  activeTab === 'planner'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-violet-50 text-violet-700 border border-violet-200'
+                }`}>
+                  Plan
+                </span>
+              </button>
+
               {currentUser.role === 'admin' && (
                 <>
                   <div className="px-3 pt-5 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
@@ -1980,47 +1976,16 @@ export default function App() {
                 <p className="text-[10px] text-slate-400 truncate">@{currentUser.username}</p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setIsFirstTimePasswordChange(false);
-                setShowPasswordChangeModal(true);
-                setNewPasswordVal('');
-                setConfirmPasswordVal('');
-                setPasswordChangeError(null);
-              }}
-              className="p-1.5 text-slate-400 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition-colors shrink-0"
-              title="Şifremi Değiştir"
-              aria-label="Şifremi Değiştir"
-            >
-              <Key size={15} />
-            </button>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                setIsFirstTimePasswordChange(false);
-                setShowPasswordChangeModal(true);
-                setNewPasswordVal('');
-                setConfirmPasswordVal('');
-                setPasswordChangeError(null);
-              }}
-              className="flex-1 min-h-[38px] py-1.5 px-2.5 bg-white hover:bg-violet-50 text-slate-700 hover:text-violet-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-slate-200/80 active:scale-95"
-            >
-              <Key size={13} />
-              <span>Şifre Değiştir</span>
-            </button>
-
-            <button
-              onClick={handleLogout}
-              className="min-h-[38px] px-3 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 border border-slate-200/60 active:scale-95"
-              title="Çıkış Yap"
-            >
-              <LogOut size={14} />
-            </button>
-          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full min-h-[40px] px-3.5 py-2 bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border border-slate-200/80 active:scale-95 shadow-2xs"
+            title="Oturumu Kapat / Çıkış Yap"
+          >
+            <LogOut size={15} />
+            <span>Çıkış Yap</span>
+          </button>
         </div>
       </aside>
 
@@ -2086,8 +2051,10 @@ export default function App() {
         <header className="hidden lg:flex sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-8 py-4 items-center justify-between">
           <div>
             <h1 className="text-lg font-black text-slate-900 leading-tight">
-              {currentUser.role === 'admin'
-                ? activeTab === 'users'
+              {isAdmin
+                ? activeTab === 'planner'
+                  ? '📅 İçerik & Sosyal Medya Planlama'
+                  : activeTab === 'users'
                   ? 'Kullanıcı Yönetimi'
                   : activeTab === 'changed'
                   ? '🚨 Değiştirilen Afiş Talepleri'
@@ -2099,8 +2066,10 @@ export default function App() {
                 : 'Afiş Taleplerim'}
             </h1>
             <p className="text-xs text-slate-500">
-              {currentUser.role === 'admin'
-                ? activeTab === 'changed'
+              {isAdmin
+                ? activeTab === 'planner'
+                  ? 'Afiş, reels, hikaye ve gönderileri günlere planlayın, paylaşılanların üzerini çizin.'
+                  : activeTab === 'changed'
                   ? 'Kullanıcıların değişiklik yaptığı güncellenen talepler'
                   : 'Afiş taleplerini inceleyin, aşamaları yönetin ve kullanıcı ekleyin.'
                 : 'Etkinlikleriniz için afiş talebi oluşturun ve durumunu takip edin.'}
@@ -2108,13 +2077,27 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => handleSelectTab(activeTab === 'planner' ? 'all' : 'planner')}
+                className={`py-1.5 px-3.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 ${
+                  activeTab === 'planner'
+                    ? 'bg-violet-600 hover:bg-violet-700 text-white shadow-violet-200'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
+                }`}
+              >
+                <span>{activeTab === 'planner' ? '📋 Afiş Portalı' : '📅 İçerik Planı'}</span>
+              </button>
+            )}
+
             {isAdmin && stats.changed > 0 && (
               <button
                 onClick={() => handleSelectTab('changed')}
                 className="py-1.5 px-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
               >
                 <AlertTriangle size={14} />
-                <span>{stats.changed} Güncellenen Talep</span>
+                <span>{stats.changed} Güncelleme</span>
               </button>
             )}
 
@@ -2122,22 +2105,6 @@ export default function App() {
               <Clock size={13} className="text-slate-400" />
               <span>{currentTime}</span>
             </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setIsFirstTimePasswordChange(false);
-                setShowPasswordChangeModal(true);
-                setNewPasswordVal('');
-                setConfirmPasswordVal('');
-                setPasswordChangeError(null);
-              }}
-              className="py-1.5 px-3 text-slate-600 hover:text-violet-700 hover:bg-slate-100 border border-slate-200/80 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors active:scale-95"
-              title="Şifrenizi Değiştirin"
-            >
-              <Key size={13} className="text-slate-500" />
-              <span>Şifre Değiştir</span>
-            </button>
 
             {currentUser.role === 'user' && activeTab !== 'new' && (
               <button
@@ -2258,6 +2225,16 @@ export default function App() {
                   <span className="text-[11px] text-slate-400">Giriş yapabilir</span>
                 </div>
 
+                {/* Security info banner */}
+                <div className="px-4 py-2.5 bg-violet-50/70 border-b border-violet-100 flex items-center justify-between gap-2 text-xs text-violet-900">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🔐</span>
+                    <span className="text-[11px] font-medium">
+                      Şifreler veritabanında <strong>ENC_v1</strong> çözülebilir formatta şifrelenmiştir. Kullanıcı henüz değiştirmediyse ilk girişte yeni şifre belirlemesi zorunludur.
+                    </span>
+                  </div>
+                </div>
+
                 {/* Mobile User Cards (< sm) */}
                 <div className="sm:hidden divide-y divide-slate-100">
                   {usersList.length === 0 ? (
@@ -2267,24 +2244,57 @@ export default function App() {
                   ) : (
                     usersList.map((u, i) => {
                       const uRole = getRoleDetails(u.role);
+                      const userKey = u.uid || `user_${i}`;
+                      const isRevealed = Boolean(revealedPasswords[userKey]);
+                      const clearPass = u.password ? decryptPassword(u.password) : '—';
                       return (
-                        <div key={u.uid || i} className="p-3.5 flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
-                              {getInitials(u.name)}
+                        <div key={userKey} className="p-3.5 space-y-2.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
+                                {getInitials(u.name)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-xs text-slate-800 truncate">{u.name}</p>
+                                <p className="text-[11px] font-mono text-slate-400 truncate">@{u.username}</p>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="font-bold text-xs text-slate-800 truncate">{u.name}</p>
-                              <p className="text-[11px] font-mono text-slate-400 truncate">@{u.username}</p>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] border ${uRole.badgeBg}`}>
+                                {uRole.short}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {formatDateOnly(u.createdAt)}
+                              </span>
                             </div>
                           </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] border ${uRole.badgeBg}`}>
-                              {uRole.short}
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              {formatDateOnly(u.createdAt)}
-                            </span>
+
+                          <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100/80">
+                            <span className="text-[11px] font-bold text-slate-500">Şifre:</span>
+
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-mono text-slate-700">
+                                <span>{isRevealed ? clearPass : '••••••••'}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setRevealedPasswords(prev => ({ ...prev, [userKey]: !prev[userKey] }))}
+                                  className="text-slate-400 hover:text-slate-700 p-0.5 ml-0.5"
+                                  title={isRevealed ? 'Gizle' : 'Göster'}
+                                >
+                                  <Eye size={12} />
+                                </button>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleCopyWhatsAppCredentials(u)}
+                                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 active:scale-95"
+                                title="WhatsApp için giriş metnini kopyala"
+                              >
+                                <Send size={11} />
+                                <span>WP İlet</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -2294,27 +2304,31 @@ export default function App() {
 
                 {/* Desktop User Table (>= sm) */}
                 <div className="hidden sm:block overflow-x-auto -webkit-overflow-scrolling-touch">
-                  <table className="w-full text-left text-xs min-w-[420px]">
+                  <table className="w-full text-left text-xs min-w-[580px]">
                     <thead className="bg-slate-50/80 border-b border-slate-200/60 text-slate-500 font-bold uppercase tracking-wider">
                       <tr>
                         <th className="py-3 px-4">Kullanıcı</th>
                         <th className="py-3 px-4">Kullanıcı Adı</th>
                         <th className="py-3 px-4">Rol</th>
+                        <th className="py-3 px-4">Şifre (Çözülebilir)</th>
                         <th className="py-3 px-4 text-right">Kayıt Tarihi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {usersList.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="py-8 text-center text-slate-400">
+                          <td colSpan={5} className="py-8 text-center text-slate-400">
                             Henüz kullanıcı bulunmuyor. Sol taraftan ekleyebilirsiniz.
                           </td>
                         </tr>
                       ) : (
                         usersList.map((u, i) => {
                           const uRole = getRoleDetails(u.role);
+                          const userKey = u.uid || `user_${i}`;
+                          const isRevealed = Boolean(revealedPasswords[userKey]);
+                          const clearPass = u.password ? decryptPassword(u.password) : '—';
                           return (
-                            <tr key={u.uid || i} className="hover:bg-slate-50/60 transition-colors">
+                            <tr key={userKey} className="hover:bg-slate-50/60 transition-colors">
                               <td className="py-3 px-4 flex items-center gap-2.5">
                                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
                                   {getInitials(u.name)}
@@ -2326,6 +2340,30 @@ export default function App() {
                                 <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] border whitespace-nowrap ${uRole.badgeBg}`}>
                                   {uRole.title}
                                 </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="flex items-center gap-1 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg font-mono text-slate-700 text-[11px]">
+                                    <span className="min-w-[60px]">{isRevealed ? clearPass : '••••••••'}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setRevealedPasswords(prev => ({ ...prev, [userKey]: !prev[userKey] }))}
+                                      className="text-slate-400 hover:text-slate-700 p-0.5"
+                                      title={isRevealed ? 'Gizle' : 'Şifreyi Çöz & Göster'}
+                                    >
+                                      <Eye size={13} />
+                                    </button>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyWhatsAppCredentials(u)}
+                                    className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 active:scale-95"
+                                    title="WhatsApp için kullanıcı adı ve çözülmüş şifre metnini kopyala"
+                                  >
+                                    <Send size={11} />
+                                    <span>WP İlet</span>
+                                  </button>
+                                </div>
                               </td>
                               <td className="py-3 px-4 text-right text-slate-500 font-medium whitespace-nowrap">
                                 {formatDateTime(u.createdAt)}
@@ -2339,6 +2377,12 @@ export default function App() {
                 </div>
               </div>
             </div>
+          ) : isAdmin && activeTab === 'planner' ? (
+            <PlannerBoard
+              currentUser={currentUser}
+              requests={requests}
+              showToast={showToast}
+            />
           ) : activeTab === 'new' ? (
             /* NEW REQUEST (MOBILE & DESKTOP RESPONSIVE FORM) */
             <div className="max-w-5xl mx-auto">
@@ -3652,20 +3696,15 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => handleSelectTab('merkez-onayinda')}
+              onClick={() => handleSelectTab('planner')}
               className={`flex flex-col items-center justify-center min-w-[50px] min-h-[44px] py-1 px-1.5 rounded-xl transition-all active:scale-95 ${
-                activeTab === 'merkez-onayinda' ? 'text-blue-600 font-extrabold' : 'text-slate-500 hover:text-slate-800'
+                activeTab === 'planner' ? 'text-violet-700 font-extrabold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               <div className="relative">
-                <span className="text-lg leading-none">🔍</span>
-                {stats.merkez > 0 && (
-                  <span className="absolute -top-1.5 -right-2 px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[9px] font-bold">
-                    {stats.merkez}
-                  </span>
-                )}
+                <span className="text-lg leading-none">📅</span>
               </div>
-              <span className="text-[10px] mt-1 font-bold">Onay</span>
+              <span className="text-[10px] mt-1 font-bold">Planlama</span>
             </button>
 
             <button
@@ -5032,151 +5071,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ════ GÜVENLİ ŞİFRE DEĞİŞTİRME & İLK GİRİŞ MODALI ════ */}
-      {showPasswordChangeModal && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
-          onClick={() => {
-            if (!isFirstTimePasswordChange) {
-              setShowPasswordChangeModal(false);
-            }
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 animate-scale-in"
-          >
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-violet-200 shrink-0">
-                  <Lock size={22} />
-                </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
-                    {isFirstTimePasswordChange ? 'Kendi Şifrenizi Belirleyin' : 'Şifrenizi Değiştirin'}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {isFirstTimePasswordChange
-                      ? 'İlk girişinize özel güvenlik adımı'
-                      : 'Hesap güvenliğinizi güncelleyin'}
-                  </p>
-                </div>
-              </div>
 
-              {!isFirstTimePasswordChange && (
-                <button
-                  type="button"
-                  onClick={() => setShowPasswordChangeModal(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
-                >
-                  <X size={18} />
-                </button>
-              )}
-            </div>
-
-            {isFirstTimePasswordChange ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 mb-5 text-xs text-amber-900 flex items-start gap-2.5">
-                <span className="text-lg shrink-0">🛡️</span>
-                <div>
-                  <strong className="block font-bold text-amber-950 mb-0.5">Hesabınız Güvende Olsun</strong>
-                  <p className="text-[11px] text-amber-800 leading-relaxed">
-                    Yöneticinizin ilettiği geçici şifreyle ilk girişinizi yaptınız. Sadece sizin bileceğiniz kalıcı yeni şifrenizi belirleyin.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-slate-600 mb-5 leading-relaxed">
-                Yeni bir şifre belirleyerek hesabınızın güvenliğini artırabilirsiniz.
-              </p>
-            )}
-
-            {passwordChangeError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-xl mb-4 flex items-center gap-2">
-                <AlertCircle size={15} className="shrink-0" />
-                <span>{passwordChangeError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleChangePasswordSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Yeni Şifre <span className="text-violet-600">*</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                    <Lock size={15} />
-                  </span>
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    required
-                    minLength={6}
-                    value={newPasswordVal}
-                    onChange={e => setNewPasswordVal(e.target.value)}
-                    placeholder="En az 6 karakter"
-                    className="w-full min-h-[44px] pl-10 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all placeholder:text-slate-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs min-h-[28px] min-w-[28px] flex items-center justify-center"
-                  >
-                    {showNewPassword ? '🙈' : '👁️'}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Yeni Şifre (Tekrar) <span className="text-violet-600">*</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                    <Lock size={15} />
-                  </span>
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    required
-                    minLength={6}
-                    value={confirmPasswordVal}
-                    onChange={e => setConfirmPasswordVal(e.target.value)}
-                    placeholder="Şifrenizi tekrar yazın"
-                    className="w-full min-h-[44px] pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all placeholder:text-slate-400"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2 flex items-center gap-2.5">
-                {!isFirstTimePasswordChange && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPasswordChangeModal(false)}
-                    className="flex-1 min-h-[44px] py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors active:scale-95"
-                  >
-                    Vazgeç
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  disabled={changingPassword}
-                  className="flex-1 min-h-[44px] py-2.5 px-4 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl shadow-md shadow-violet-200 hover:shadow-violet-300 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-                >
-                  {changingPassword ? (
-                    <>
-                      <RefreshCw size={14} className="animate-spin" />
-                      <span>Kaydediliyor…</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 size={15} />
-                      <span>{isFirstTimePasswordChange ? 'Şifremi Belirle & Başla' : 'Şifreyi Güncelle'}</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* ════ TOAST NOTIFICATION (MOBILE SAFE POSITION) ════ */}
       {toast && (

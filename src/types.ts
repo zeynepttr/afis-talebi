@@ -131,3 +131,97 @@ export const FORM_STATUS_CONFIG: Record<
   }
 };
 
+export type ContentType = 'afis' | 'reels' | 'hikaye' | 'post' | 'carousel' | 'duyuru';
+export type ContentStatus = 'hazir' | 'tasarimda' | 'metin-bekliyor' | 'paylasildi';
+
+export interface PlannerCard {
+  id: string;
+  title: string; // e.g. "Gemlik İhh - Afiş - Hazır"
+  unit?: string; // Birim veya Etkinlik Adı
+  contentType: ContentType; // 'afis' | 'reels' | 'hikaye' | 'post' | 'carousel' | 'duyuru'
+  status: ContentStatus; // 'hazir' | 'tasarimda' | 'metin-bekliyor' | 'paylasildi'
+  isCompleted?: boolean; // Paylaşıldıysa üzeri çizilir (strikethrough)
+  columnId: string;
+  order: number;
+  notes?: string;
+  sourceRequestId?: string; // Afiş taleplerinden çekildiyse talep id'si
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface PlannerColumn {
+  id: string;
+  title: string; // e.g. "Paylaşılacaklar", "1.11.2026 - Pazar", "2.11.2026 - Pazartesi"
+  isPool?: boolean; // Havuz kolonu ("Paylaşılacaklar")
+  date?: string; // "YYYY-MM-DD"
+  order: number;
+}
+
+export const CONTENT_TYPE_CONFIG: Record<
+  ContentType,
+  { label: string; icon: string; badgeBg: string; color: string }
+> = {
+  afis: {
+    label: 'Afiş',
+    icon: '🖼️',
+    badgeBg: 'bg-purple-100 text-purple-800 border-purple-200',
+    color: '#9333ea'
+  },
+  reels: {
+    label: 'Reels',
+    icon: '🎬',
+    badgeBg: 'bg-rose-100 text-rose-800 border-rose-200',
+    color: '#e11d48'
+  },
+  hikaye: {
+    label: 'Hikaye (Story)',
+    icon: '📱',
+    badgeBg: 'bg-amber-100 text-amber-800 border-amber-200',
+    color: '#d97706'
+  },
+  post: {
+    label: 'Post',
+    icon: '📸',
+    badgeBg: 'bg-sky-100 text-sky-800 border-sky-200',
+    color: '#0284c7'
+  },
+  carousel: {
+    label: 'Kaydırmalı',
+    icon: '📑',
+    badgeBg: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+    color: '#4f46e5'
+  },
+  duyuru: {
+    label: 'Duyuru',
+    icon: '📢',
+    badgeBg: 'bg-slate-100 text-slate-800 border-slate-200',
+    color: '#475569'
+  }
+};
+
+export const CONTENT_STATUS_CONFIG: Record<
+  ContentStatus,
+  { label: string; icon: string; badgeBg: string }
+> = {
+  hazir: {
+    label: 'Hazır',
+    icon: '✅',
+    badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200'
+  },
+  tasarimda: {
+    label: 'Tasarımda',
+    icon: '🎨',
+    badgeBg: 'bg-amber-50 text-amber-700 border-amber-200'
+  },
+  'metin-bekliyor': {
+    label: 'Metin Bekliyor',
+    icon: '✍️',
+    badgeBg: 'bg-blue-50 text-blue-700 border-blue-200'
+  },
+  paylasildi: {
+    label: 'Paylaşıldı',
+    icon: '🚀',
+    badgeBg: 'bg-emerald-600 text-white border-emerald-700'
+  }
+};
+
