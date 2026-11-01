@@ -4,6 +4,7 @@ import {
   signOut, 
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  updatePassword,
   onAuthStateChanged,
   type User as FirebaseUser 
 } from "firebase/auth";
@@ -61,6 +62,7 @@ export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getA
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const rtdb = getDatabase(app, currentRtdbUrl);
+export { updatePassword };
 
 // Function to switch Realtime Database URL if needed
 export function setDatabaseRegion(regionUrl: string) {

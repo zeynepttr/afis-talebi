@@ -7,6 +7,8 @@ export interface AppUser {
   password?: string;
   role: UserRole;
   createdAt?: any;
+  passwordChanged?: boolean;
+  passwordChangedAt?: any;
 }
 
 export type RequestStatus = 'talep-alindi' | 'tasarimda' | 'merkez-onayinda' | 'yayinlandi';
